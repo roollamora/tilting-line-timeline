@@ -1,0 +1,29 @@
+---
+description: Tilting Line — avoid wasted geometry/UI churn; keep user-authored spec only
+alwaysApply: true
+---
+
+# Tilting Line — lessons (persistent)
+
+## What went wrong (do not repeat)
+
+- **Layering SVG/DOM “fixes” without a single coordinate model** produced invisible shapes, CSS/DOM mismatch, and stacked rival implementations.
+- **Per-scroll heavy work** (`querySelectorAll` per frame, redundant layout passes, RAF + scroll thrash) caused lag without fixing alignment.
+- **Mixing concerns**: party-band sizing coupled to personality ranking/slot math amplified complexity.
+- **Starting local servers** for preview is fine on the user’s machine only; **never imply deploy/upload**. Offer commands; do not treat preview as shipping.
+
+## User-authored target spec (geometry — not implemented here)
+
+Conceptual model only; implement only when explicitly requested with tests:
+
+- **G**: guiding line, slope angle **q** (from `--line-angle` / displayed angle).
+- **Axes (conceptual)**: **x** along G; **y** horizontal; **z** direction angle **(q + 180° + ε·90°)/3**, **ε = ±1** from **current timeline multiplier sign**.
+- **Rectangle ABCD in xz**: **AD** and **BC** along **x** (lifespan along G); **AB** and **CD** along **z**, length **h** (scales with guide spacing). **AD lies on G** (not free-floating offset hacks).
+- **Scroll time**: user requested **5× faster** calendar progression vs scroll distance — keep that multiplier in `getScrollProgress` unless they change it.
+
+## Agent rules for similar requests
+
+- **Remove broken layers first**, then one implementation path — no parallel dead code paths.
+- **Prove alignment** with minimal probes (console/assert/screenshot) before elaborate refactors.
+- **Prefer one compositor-friendly approach** (e.g. canvas or a single SVG with batched updates) over dozens of absolutely positioned SVGs if performance matters.
+- **Do not expand scope** (extra layers, z-index wars) without explicit approval.

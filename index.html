@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tilting Line Timeline</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f5f1e8;
+      --ink: #111111;
+      --muted: #736b5f;
+      --panel: rgba(255, 252, 244, 0.92);
+      --panel-border: rgba(17, 17, 17, 0.14);
+      --accent: #9c3f23;
+      --line-angle: 30deg;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(156, 63, 35, 0.14), transparent 34rem),
+        linear-gradient(180deg, #fbf7ec 0%, var(--paper) 45%, #eee7d7 100%);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .stage {
+      position: relative;
+      min-height: 12000px;
+      padding: 36px 0;
+    }
+
+    .intro {
+      position: fixed;
+      z-index: 6;
+      top: 24px;
+      left: 24px;
+      max-width: min(440px, calc(100vw - 48px));
+      padding: 18px 20px;
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 16px 50px rgba(17, 17, 17, 0.1);
+      backdrop-filter: blur(14px);
+    }
+
+    .intro h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.4rem, 2vw, 2.1rem);
+      letter-spacing: -0.04em;
+    }
+
+    .intro p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .intro a {
+      display: inline-block;
+      margin-top: 10px;
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .line-viewport {
+      position: fixed;
+      z-index: 3;
+      inset: 0;
+      pointer-events: none;
+      -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 75%, rgba(0, 0, 0, 0.2) 100%);
+      mask-image: linear-gradient(to bottom, #000 0%, #000 75%, rgba(0, 0, 0, 0.2) 100%);
+    }
+
+    .line-wrap {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 420vmax;
+      height: 140px;
+      transform: translate(-50%, -50%) rotate(var(--line-angle));
+      transform-origin: center;
+      transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .guide-lines {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 100%;
+      height: 1800px;
+      overflow: visible;
+      transform: translateY(-50%);
+    }
+
+    .guide-line {
+      fill: none;
+      stroke: rgba(5, 5, 5, 0.24);
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .line {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: #050505;
+      clip-path: polygon(0 46%, 45% 43%, 65% 32%, 100% 0, 100% 100%, 65% 68%, 45% 57%, 0 54%);
+      box-shadow:
+        0 18px 36px rgba(17, 17, 17, 0.24),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+
+    .line-centre {
+      position: fixed;
+      z-index: 5;
+      top: 50%;
+      left: 50%;
+      width: 14px;
+      height: 14px;
+      border: 3px solid #fffaf0;
+      border-radius: 50%;
+      background: var(--ink);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .date-card {
+      position: fixed;
+      z-index: 5;
+      top: calc(50% - 112px);
+      left: 50%;
+      min-width: 180px;
+      padding: 14px 16px;
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      background: var(--panel);
+      box-shadow: 0 16px 46px rgba(17, 17, 17, 0.12);
+      transform: translateX(-50%);
+      text-align: center;
+      backdrop-filter: blur(14px);
+    }
+
+    .date-card span {
+      display: block;
+    }
+
+    .date-label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .date-value {
+      margin-top: 4px;
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .date-angle {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .controls {
+      position: fixed;
+      z-index: 7;
+      right: 24px;
+      top: 24px;
+      width: min(370px, calc(100vw - 48px));
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      padding: 18px;
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 16px 50px rgba(17, 17, 17, 0.12);
+      backdrop-filter: blur(14px);
+    }
+
+    .controls h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      margin: 10px 0;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      min-height: 40px;
+      padding: 8px 10px;
+      border: 1px solid rgba(17, 17, 17, 0.16);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.74);
+      color: var(--ink);
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .actions button {
+      min-height: 42px;
+      border: 0;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .primary {
+      background: var(--ink);
+      color: #fffaf0;
+    }
+
+    .secondary {
+      background: rgba(17, 17, 17, 0.08);
+      color: var(--ink);
+    }
+
+    .hint,
+    .node-summary {
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.4;
+    }
+
+    .node-summary {
+      margin: 12px 0 0;
+      padding-top: 12px;
+      border-top: 1px solid rgba(17, 17, 17, 0.1);
+    }
+
+    .year-marker {
+      position: absolute;
+      left: 50%;
+      width: min(86vw, 1100px);
+      border-top: 1px solid rgba(17, 17, 17, 0.1);
+      transform: translateX(-50%);
+    }
+
+    .year-marker span {
+      position: absolute;
+      top: -11px;
+      left: 0;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(245, 241, 232, 0.9);
+      color: rgba(17, 17, 17, 0.55);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+
+    .event {
+      position: absolute;
+      z-index: 2;
+      left: 50%;
+      width: min(320px, 34vw);
+      padding: 14px 16px;
+      border: 1px solid rgba(17, 17, 17, 0.13);
+      border-radius: 16px;
+      background: rgba(255, 252, 244, 0.86);
+      box-shadow: 0 16px 42px rgba(17, 17, 17, 0.1);
+      backdrop-filter: blur(10px);
+    }
+
+    .event::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 54px;
+      border-top: 1px solid rgba(17, 17, 17, 0.2);
+    }
+
+    .event.left {
+      transform: translate(-118%, -50%);
+    }
+
+    .event.left::before {
+      right: -54px;
+    }
+
+    .event.right {
+      transform: translate(18%, -50%);
+    }
+
+    .event.right::before {
+      left: -54px;
+    }
+
+    .event time {
+      display: block;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .event strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .event p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.42;
+    }
+
+    .actors-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .party-band {
+      position: absolute;
+      left: 50%;
+      border-radius: 4px;
+      background: rgba(156, 63, 35, 0.12);
+      border: 1px solid rgba(17, 17, 17, 0.14);
+      box-sizing: border-box;
+      transform-origin: center top;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .party-band .bar-label {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(17, 17, 17, 0.55);
+      text-align: center;
+      max-width: 100%;
+      padding: 2px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .scroll-progress {
+      position: fixed;
+      z-index: 8;
+      right: 0;
+      top: 0;
+      width: 5px;
+      height: var(--progress-height, 0%);
+      background: var(--accent);
+      pointer-events: none;
+    }
+
+    @media (max-width: 760px) {
+      .intro,
+      .controls {
+        position: relative;
+        top: auto;
+        left: auto;
+        right: auto;
+        width: calc(100% - 32px);
+        margin: 16px;
+      }
+
+      .controls {
+        z-index: 8;
+      }
+
+      .intro {
+        z-index: 8;
+      }
+
+      .line-wrap {
+        width: 460vmax;
+        height: 104px;
+      }
+
+      .date-card {
+        top: calc(50% - 94px);
+      }
+
+      .event {
+        width: min(280px, 42vw);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage" id="stage" aria-label="Scrollable political dominance timeline">
+    <div id="actors-layer" class="actors-layer" aria-hidden="true"></div>
+    <section class="intro" aria-labelledby="page-title">
+      <h1 id="page-title">Tilting Line Timeline</h1>
+      <p>Scroll from January 1930 to today. The centre stays fixed while the line tilts according to editable political dominance nodes.</p>
+      <a href="admin.html">Open Admin / Management</a>
+    </section>
+
+    <aside class="controls" aria-labelledby="controls-title">
+      <h2 id="controls-title">Angle Change Nodes</h2>
+      <p class="hint">Choose a node from the dropdown, edit its date or multiplier, then update. Add a new date to reshape the tilt path immediately.</p>
+
+      <div class="field">
+        <label for="node-select">Existing node</label>
+        <select id="node-select"></select>
+      </div>
+
+      <div class="field">
+        <label for="node-date">Date</label>
+        <input id="node-date" type="month" min="1930-01">
+      </div>
+
+      <div class="field">
+        <label for="node-multiplier">Multiplier (-1 to 1)</label>
+        <input id="node-multiplier" type="number" min="-1" max="1" step="0.1">
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="save-node" type="button">Add / Update</button>
+        <button class="secondary" id="remove-node" type="button">Remove</button>
+      </div>
+
+      <p class="node-summary" id="node-summary"></p>
+    </aside>
+
+    <div class="date-card" role="status" aria-live="polite">
+      <span class="date-label">Current date</span>
+      <span class="date-value" id="date-value">January 1930</span>
+      <span class="date-angle" id="date-angle">30 deg, +1.00</span>
+    </div>
+
+    <div class="line-viewport" aria-hidden="true">
+      <div class="line-wrap">
+        <svg class="guide-lines" id="guide-lines" viewBox="0 -900 1000 1800" preserveAspectRatio="none"></svg>
+        <div class="line"></div>
+      </div>
+    </div>
+    <div class="line-centre" aria-hidden="true"></div>
+    <div class="scroll-progress" aria-hidden="true"></div>
+  </main>
+
+  <script src="data-store.js"></script>
+  <script>
+    const appData = window.TiltingLineStore.load();
+    const timelineSettings = appData.timeline;
+    const [startYear, startMonth] = timelineSettings.startDate.split("-").map(Number);
+    const [endYear, endMonth] = timelineSettings.endDate.split("-").map(Number);
+    const startDate = new Date(startYear, startMonth - 1, 1);
+    const endDate = new Date(endYear, endMonth - 1, 1);
+    const stage = document.querySelector("#stage");
+    const nodeSelect = document.querySelector("#node-select");
+    const nodeDateInput = document.querySelector("#node-date");
+    const nodeMultiplierInput = document.querySelector("#node-multiplier");
+    const saveNodeButton = document.querySelector("#save-node");
+    const removeNodeButton = document.querySelector("#remove-node");
+    const nodeSummary = document.querySelector("#node-summary");
+    const dateValue = document.querySelector("#date-value");
+    const dateAngle = document.querySelector("#date-angle");
+    const guideLines = document.querySelector("#guide-lines");
+    const newNodeValue = "__new_node__";
+    const guideLineCount = Math.max(0, Number(timelineSettings.guideLineCount) || 20);
+    const guideLineCentreGap = Math.max(1, Number(timelineSettings.guideLineGap) || 20);
+    const guideSamplePoints = [0, 1000];
+
+    let nodes = appData.angleNodes.map((node) => ({
+      id: node.id,
+      date: node.date,
+      multiplier: Number(node.multiplier)
+    }));
+
+    if (nodes.length < 2) {
+      nodes = [
+        { id: "node-start", date: toMonthValue(startDate), multiplier: 1 },
+        { id: "node-end", date: toMonthValue(endDate), multiplier: -1 }
+      ];
+    }
+
+    const timelineEntries = appData.entries.slice().sort((left, right) => parseMonth(left.date) - parseMonth(right.date));
+    const parties = Array.isArray(appData.parties) ? appData.parties : [];
+    const actorsLayer = document.querySelector("#actors-layer");
+
+    const monthFormatter = new Intl.DateTimeFormat("en", {
+      month: "long",
+      year: "numeric"
+    });
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function toMonthValue(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      return `${year}-${month}`;
+    }
+
+    function parseMonth(value) {
+      const [year, month] = value.split("-").map(Number);
+      return new Date(year, month - 1, 1);
+    }
+
+    function monthToNumber(value) {
+      const [year, month] = value.split("-").map(Number);
+      return year * 12 + (month - 1);
+    }
+
+    function numberToMonth(num) {
+      const year = Math.floor(num / 12);
+      const month = (num % 12) + 1;
+      return `${year}-${String(month).padStart(2, "0")}`;
+    }
+
+    function dateToProgress(date) {
+      return clamp((date.getTime() - startDate.getTime()) / (endDate.getTime() - startDate.getTime()), 0, 1);
+    }
+
+    function progressToDate(progress) {
+      const time = startDate.getTime() + progress * (endDate.getTime() - startDate.getTime());
+      return new Date(time);
+    }
+
+    function multiplierToAngle(multiplier) {
+      return 90 - multiplier * 60;
+    }
+
+    function mapDisplayedAngle(angle) {
+      if (angle <= 60) {
+        return angle;
+      }
+
+      if (angle < 90) {
+        return 60 + (angle - 60) / 6;
+      }
+
+      if (angle <= 120) {
+        return 115 + (angle - 90) / 6;
+      }
+
+      return angle;
+    }
+
+    function guidePathFor(side, lineNumber) {
+      const coordinates = guideSamplePoints.map((x) => {
+        const halfThickness = 5.6 + (64.4 * x) / 1000;
+        const scaledGap = guideLineCentreGap * (halfThickness / 27.3);
+        const offset = halfThickness + lineNumber * scaledGap;
+        return `${x},${side * offset}`;
+      });
+
+      return `M ${coordinates.join(" L ")}`;
+    }
+
+    function renderGuideLines() {
+      const fragment = document.createDocumentFragment();
+      guideLines.innerHTML = "";
+
+      for (let lineNumber = 1; lineNumber <= guideLineCount; lineNumber += 1) {
+        const upperPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        upperPath.setAttribute("class", "guide-line");
+        upperPath.setAttribute("d", guidePathFor(-1, lineNumber));
+        fragment.append(upperPath);
+
+        const lowerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        lowerPath.setAttribute("class", "guide-line");
+        lowerPath.setAttribute("d", guidePathFor(1, lineNumber));
+        fragment.append(lowerPath);
+      }
+
+      guideLines.append(fragment);
+    }
+
+    function sortNodes() {
+      nodes.sort((a, b) => parseMonth(a.date) - parseMonth(b.date));
+    }
+
+    function saveNodes() {
+      appData.angleNodes = nodes.map((node, index) => ({
+        id: node.id || `node-${index + 1}`,
+        date: node.date,
+        multiplier: clamp(Number(node.multiplier), -1, 1)
+      }));
+      window.TiltingLineStore.save(appData);
+    }
+
+    function normalizedNodes() {
+      return nodes.map((node) => ({
+        ...node,
+        time: parseMonth(node.date).getTime(),
+        multiplier: clamp(Number(node.multiplier), -1, 1)
+      }));
+    }
+
+    function interpolateMultiplier(date) {
+      const orderedNodes = normalizedNodes();
+      const time = date.getTime();
+
+      if (time <= orderedNodes[0].time) {
+        return orderedNodes[0].multiplier;
+      }
+
+      const lastNode = orderedNodes[orderedNodes.length - 1];
+      if (time >= lastNode.time) {
+        return lastNode.multiplier;
+      }
+
+      for (let index = 0; index < orderedNodes.length - 1; index += 1) {
+        const current = orderedNodes[index];
+        const next = orderedNodes[index + 1];
+
+        if (time >= current.time && time <= next.time) {
+          const segmentProgress = (time - current.time) / (next.time - current.time);
+          return current.multiplier + segmentProgress * (next.multiplier - current.multiplier);
+        }
+      }
+
+      return lastNode.multiplier;
+    }
+
+    function getScrollProgress() {
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      return maxScroll > 0 ? clamp((window.scrollY / maxScroll) * 5, 0, 1) : 0;
+    }
+
+    function updateTimeline() {
+      const progress = getScrollProgress();
+      const currentDate = progressToDate(progress);
+      const multiplier = interpolateMultiplier(currentDate);
+      const rawAngle = multiplierToAngle(multiplier);
+      const angle = mapDisplayedAngle(rawAngle);
+
+      document.documentElement.style.setProperty("--line-angle", `${angle}deg`);
+      document.documentElement.style.setProperty("--progress-height", `${progress * 100}%`);
+      dateValue.textContent = monthFormatter.format(currentDate);
+      dateAngle.textContent = `${angle.toFixed(1)} deg, ${multiplier >= 0 ? "+" : ""}${multiplier.toFixed(2)}`;
+    }
+
+    function describeNode(node) {
+      const date = monthFormatter.format(parseMonth(node.date));
+      const multiplier = Number(node.multiplier);
+      const angle = multiplierToAngle(multiplier);
+      return `${date}: ${multiplier >= 0 ? "+" : ""}${multiplier.toFixed(2)} (${angle.toFixed(0)} deg)`;
+    }
+
+    function renderNodeControls(selectedDate = nodeSelect.value || nodes[0].date) {
+      sortNodes();
+      nodeSelect.innerHTML = "";
+
+      nodes.forEach((node) => {
+        const option = document.createElement("option");
+        option.value = node.date;
+        option.textContent = describeNode(node);
+        nodeSelect.append(option);
+      });
+
+      const newOption = document.createElement("option");
+      newOption.value = newNodeValue;
+      newOption.textContent = "Add new node...";
+      nodeSelect.append(newOption);
+
+      if (selectedDate === newNodeValue) {
+        const currentDate = progressToDate(getScrollProgress());
+        nodeSelect.value = newNodeValue;
+        nodeDateInput.value = toMonthValue(currentDate);
+        nodeDateInput.max = toMonthValue(endDate);
+        nodeMultiplierInput.value = 0;
+        removeNodeButton.disabled = true;
+        nodeSummary.textContent = `${nodes.length} nodes: ${nodes.map(describeNode).join(" | ")}`;
+        updateTimeline();
+        return;
+      }
+
+      const selectedNode = nodes.find((node) => node.date === selectedDate) || nodes[0];
+      nodeSelect.value = selectedNode.date;
+      nodeDateInput.value = selectedNode.date;
+      nodeDateInput.max = toMonthValue(endDate);
+      nodeMultiplierInput.value = selectedNode.multiplier;
+      removeNodeButton.disabled = nodes.length <= 2;
+      nodeSummary.textContent = `${nodes.length} nodes: ${nodes.map(describeNode).join(" | ")}`;
+      updateTimeline();
+    }
+
+    function upsertNode() {
+      const date = nodeDateInput.value;
+      const multiplier = clamp(Number(nodeMultiplierInput.value), -1, 1);
+
+      if (!date || Number.isNaN(multiplier)) {
+        return;
+      }
+
+      const selectedDate = nodeSelect.value;
+      const requestedDate = parseMonth(date);
+      const boundedDate = toMonthValue(requestedDate < startDate ? startDate : requestedDate > endDate ? endDate : requestedDate);
+      const existingNode = nodes.find((node) => node.date === boundedDate);
+
+      if (existingNode) {
+        existingNode.multiplier = multiplier;
+      } else if (selectedDate && selectedDate !== newNodeValue) {
+        const selectedNode = nodes.find((node) => node.date === selectedDate);
+        selectedNode.date = boundedDate;
+        selectedNode.multiplier = multiplier;
+      } else {
+        nodes.push({ id: `node-${Date.now()}`, date: boundedDate, multiplier });
+      }
+
+      saveNodes();
+      renderNodeControls(boundedDate);
+    }
+
+    function removeSelectedNode() {
+      if (nodes.length <= 2) {
+        return;
+      }
+
+      const selectedDate = nodeSelect.value;
+      nodes = nodes.filter((node) => node.date !== selectedDate);
+      saveNodes();
+      renderNodeControls();
+    }
+
+    function renderYearMarkers() {
+      const fragment = document.createDocumentFragment();
+      const startYear = startDate.getFullYear();
+      const endYear = endDate.getFullYear();
+
+      for (let year = startYear; year <= endYear; year += 10) {
+        const marker = document.createElement("div");
+        marker.className = "year-marker";
+        marker.style.top = `${dateToProgress(new Date(year, 0, 1)) * 100}%`;
+        marker.innerHTML = `<span>${year}</span>`;
+        fragment.append(marker);
+      }
+
+      stage.append(fragment);
+    }
+
+    function renderEvents() {
+      const fragment = document.createDocumentFragment();
+
+      timelineEntries.forEach((event, index) => {
+        const element = document.createElement("article");
+        element.className = `event ${index % 2 === 0 ? "left" : "right"}`;
+        element.style.top = `${dateToProgress(parseMonth(event.date)) * 100}%`;
+        element.innerHTML = `
+          <time>${monthFormatter.format(parseMonth(event.date))}</time>
+          <strong>${event.title} (${event.type})</strong>
+          <p>${event.body}</p>
+        `;
+        fragment.append(element);
+      });
+
+      stage.append(fragment);
+    }
+
+    function partyActivityRange(party) {
+      let start = monthToNumber(party.established);
+      let end = party.dissolved ? monthToNumber(party.dissolved) : monthToNumber(toMonthValue(endDate));
+      (party.positions || []).forEach((row) => {
+        start = Math.min(start, monthToNumber(row.start));
+        end = Math.max(end, monthToNumber(row.end));
+      });
+      return { start, end };
+    }
+
+    function renderActorsLayer() {
+      if (!actorsLayer) {
+        return;
+      }
+      actorsLayer.innerHTML = "";
+
+      parties.forEach((party) => {
+        const range = partyActivityRange(party);
+        const startMonth = numberToMonth(range.start);
+        const endMonth = numberToMonth(range.end);
+
+        const topProgress = dateToProgress(parseMonth(startMonth));
+        const bottomProgress = dateToProgress(parseMonth(endMonth));
+        const height = Math.max(0.15, (bottomProgress - topProgress) * 100);
+
+        const band = document.createElement("div");
+        band.className = "party-band";
+        band.style.top = `${topProgress * 100}%`;
+        band.style.height = `${height}%`;
+        band.style.width = "120px";
+        band.style.transform = "translate(-50%, 0) rotate(var(--line-angle))";
+        band.title = party.name;
+        const partyLabel = document.createElement("span");
+        partyLabel.className = "bar-label";
+        partyLabel.textContent = party.name;
+        band.append(partyLabel);
+        actorsLayer.append(band);
+      });
+    }
+
+    nodeSelect.addEventListener("change", () => {
+      if (nodeSelect.value === newNodeValue) {
+        renderNodeControls(newNodeValue);
+        return;
+      }
+
+      const selectedNode = nodes.find((node) => node.date === nodeSelect.value);
+      if (!selectedNode) {
+        return;
+      }
+
+      nodeDateInput.value = selectedNode.date;
+      nodeMultiplierInput.value = selectedNode.multiplier;
+    });
+
+    saveNodeButton.addEventListener("click", upsertNode);
+    removeNodeButton.addEventListener("click", removeSelectedNode);
+    window.addEventListener("scroll", updateTimeline, { passive: true });
+
+    renderGuideLines();
+    renderYearMarkers();
+    renderEvents();
+    renderActorsLayer();
+    renderNodeControls();
+    updateTimeline();
+
+    let resizeActorsTimer = 0;
+    window.addEventListener("resize", () => {
+      window.clearTimeout(resizeActorsTimer);
+      resizeActorsTimer = window.setTimeout(() => {
+        renderGuideLines();
+        renderActorsLayer();
+        updateTimeline();
+      }, 120);
+    });
+  </script>
+</body>
+</html>
