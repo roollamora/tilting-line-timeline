@@ -131,6 +131,10 @@
       stroke: rgba(214, 58, 136, 0.4);
     }
 
+    .person-card {
+      pointer-events: none;
+    }
+
     .line {
       position: absolute;
       inset: 0;
@@ -413,7 +417,7 @@
   <main class="stage" id="stage" aria-label="Scrollable political dominance timeline">
     <section class="intro" aria-labelledby="page-title">
       <h1 id="page-title">Tilting Line Timeline</h1>
-      <p>Scroll from January 1930 to today. The centre stays fixed while the line tilts according to editable political dominance nodes.</p>
+      <p>Scroll from January 1930 to today. Person cards span birth to death on guide slots; fill colour follows party affiliation. UK political climate nodes reshape the tilt every few years.</p>
       <a href="admin.html">Open Admin / Management</a>
     </section>
 
@@ -517,6 +521,9 @@
     }
 
     const timelineEntries = appData.entries.slice().sort((left, right) => parseMonth(left.date) - parseMonth(right.date));
+    const parties = appData.parties;
+    const personalities = appData.personalities;
+    const PERSON_CARD_OPACITY = 0.3;
 
     const monthFormatter = new Intl.DateTimeFormat("en", {
       month: "long",
@@ -821,25 +828,72 @@
       return { x: cx + t * cosT, y: viewportY };
     }
 
-    function updateZZBandFill(angleDeg) {
-      if (!guideLines || !zzDirection || !stage) {
-        return;
+    function hexToRgb(hex) {
+      const normalized = hex.replace("#", "");
+      const full = normalized.length === 3
+        ? normalized.split("").map((char) => char + char).join("")
+        : normalized;
+      return {
+        r: parseInt(full.slice(0, 2), 16),
+        g: parseInt(full.slice(2, 4), 16),
+        b: parseInt(full.slice(4, 6), 16)
+      };
+    }
+
+    function colorWithAlpha(hex, alpha) {
+      const { r, g, b } = hexToRgb(hex);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function partyColorForPerson(person) {
+      const affiliations = person.partyAffiliations || [];
+      const primary = affiliations[0];
+      const party = primary ? parties.find((row) => row.id === primary.partyId) : null;
+      return party && party.color ? party.color : "#888888";
+    }
+
+    function assignPersonGuideSlots(people) {
+      const left = [];
+      const right = [];
+      people.forEach((person) => {
+        const leaning = Number(person.leaningScore) || 0;
+        const intensity = Math.abs(leaning);
+        if (leaning < 0) {
+          left.push({ id: person.id, intensity });
+        } else {
+          right.push({ id: person.id, intensity });
+        }
+      });
+      left.sort((a, b) => b.intensity - a.intensity);
+      right.sort((a, b) => b.intensity - a.intensity);
+      const slots = {};
+      left.forEach((entry, index) => {
+        slots[entry.id] = { side: -1, lineNumber: index + 1 };
+      });
+      right.forEach((entry, index) => {
+        slots[entry.id] = { side: 1, lineNumber: index + 1 };
+      });
+      return slots;
+    }
+
+    function personCardGeometry(dateFrom, dateTo, side, lineNumber, angleDeg, params) {
+      if (!stage || !zzDirection) {
+        return null;
       }
 
       const stageRect = stage.getBoundingClientRect();
       const stageHeight = stage.offsetHeight;
-      const pFrom = dateToProgress(parseMonth("1945-01"));
-      const pTo = dateToProgress(parseMonth("1960-01"));
+      const pFrom = dateToProgress(dateFrom);
+      const pTo = dateToProgress(dateTo);
+      if (pTo <= pFrom) {
+        return null;
+      }
+
       const yFrom = stageRect.top + pFrom * stageHeight;
       const yTo = stageRect.top + pTo * stageHeight;
-
       const zzDir = zzDirection.unit;
       const zzLineFrom = lineFromPointAndDir(timelineCenterPointAtViewportY(yFrom, angleDeg), zzDir);
       const zzLineTo = lineFromPointAndDir(timelineCenterPointAtViewportY(yTo, angleDeg), zzDir);
-
-      const side = 1;
-      const lineNumber = 1;
-      const params = getGuideTransformParams();
       const blackLine = lineFromPoints(
         guideLocalPointToViewport(0, guideLocalY(side, lineNumber, 0), angleDeg, params),
         guideLocalPointToViewport(1000, guideLocalY(side, lineNumber, 1000), angleDeg, params)
@@ -855,32 +909,58 @@
       const pinkFrom = intersectLines(pinkLine, zzLineFrom);
       const pinkTo = intersectLines(pinkLine, zzLineTo);
       const blackTo = intersectLines(blackLine, zzLineTo);
-
       if (!blackFrom || !pinkFrom || !pinkTo || !blackTo) {
-        const existing = guideLines.querySelector("#zz-band-fill");
-        if (existing) {
-          existing.remove();
-        }
-        return;
+        return null;
       }
 
       const p1 = viewportPointToGuideLocal(blackFrom.x, blackFrom.y, angleDeg, params);
       const p2 = viewportPointToGuideLocal(pinkFrom.x, pinkFrom.y, angleDeg, params);
       const p3 = viewportPointToGuideLocal(pinkTo.x, pinkTo.y, angleDeg, params);
       const p4 = viewportPointToGuideLocal(blackTo.x, blackTo.y, angleDeg, params);
-      const points = [`${p1.x},${p1.y}`, `${p2.x},${p2.y}`, `${p3.x},${p3.y}`, `${p4.x},${p4.y}`].join(" ");
+      return {
+        points: [`${p1.x},${p1.y}`, `${p2.x},${p2.y}`, `${p3.x},${p3.y}`, `${p4.x},${p4.y}`].join(" "),
+        timeAxis: { x1: p1.x, y1: p1.y, x2: p4.x, y2: p4.y }
+      };
+    }
 
-      let band = guideLines.querySelector("#zz-band-fill");
-      if (!band) {
-        band = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-        band.setAttribute("id", "zz-band-fill");
-        band.setAttribute("fill", "rgba(214, 58, 136, 0.22)");
-        band.setAttribute("stroke", "rgba(214, 58, 136, 0.45)");
-        band.setAttribute("stroke-width", "1");
-        band.setAttribute("vector-effect", "non-scaling-stroke");
-        guideLines.append(band);
+    function renderPersonCards(angleDeg) {
+      if (!guideLines || !zzDirection || !stage) {
+        return;
       }
-      band.setAttribute("points", points);
+
+      guideLines.querySelectorAll(".person-card").forEach((node) => node.remove());
+
+      const params = getGuideTransformParams();
+      const slots = assignPersonGuideSlots(personalities);
+      const fragment = document.createDocumentFragment();
+
+      personalities.forEach((person) => {
+        const slot = slots[person.id];
+        if (!slot) {
+          return;
+        }
+        const birth = parseMonth(person.birthDate);
+        const death = parseMonth(person.deathDate);
+        const geometry = personCardGeometry(birth, death, slot.side, slot.lineNumber, angleDeg, params);
+        if (!geometry) {
+          return;
+        }
+
+        const color = partyColorForPerson(person);
+        const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        polygon.setAttribute("class", "person-card");
+        polygon.setAttribute("data-person-id", person.id);
+        polygon.setAttribute("data-person-name", person.name || person.id);
+        polygon.setAttribute("data-side", slot.side < 0 ? "left" : "right");
+        polygon.setAttribute("points", geometry.points);
+        polygon.setAttribute("fill", colorWithAlpha(color, PERSON_CARD_OPACITY));
+        polygon.setAttribute("stroke", colorWithAlpha(color, 0.55));
+        polygon.setAttribute("stroke-width", "1");
+        polygon.setAttribute("vector-effect", "non-scaling-stroke");
+        fragment.append(polygon);
+      });
+
+      guideLines.append(fragment);
     }
 
     function syncScrollToAnchoredDate(anchorDate) {
@@ -1056,7 +1136,7 @@
       const profile = updateTimelineLineProfile();
       updateZZDirection(multiplier, angleDeg, profile);
       renderGuideLines(angleDeg);
-      updateZZBandFill(angleDeg);
+      renderPersonCards(angleDeg);
     }
 
     function tickTiltAnimation() {
@@ -1259,7 +1339,7 @@
     });
   </script>
   <div id="version-stamp" style="position:fixed;bottom:6px;right:10px;z-index:999;font:10px/1 monospace;color:rgba(0,0,0,0.3);pointer-events:none;">
-    v5 — 2026-05-26 13:02 UTC+0200
+    v9 — 2026-05-26 14:06 UTC+0200
   </div>
 </body>
 </html>

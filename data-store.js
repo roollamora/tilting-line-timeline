@@ -1,10 +1,39 @@
 (() => {
-  const storageKey = "tilting-line-data-v1";
+  const storageKey = "tilting-line-data-v3";
 
   function getCurrentMonth() {
     const now = new Date();
     const month = String(now.getMonth() + 1).padStart(2, "0");
     return `${now.getFullYear()}-${month}`;
+  }
+
+  // UK governing-climate multipliers (~every 3–5 years at PM / election shifts).
+  // Positive = right-leaning environment, negative = left-leaning (matches tilt multiplier sign).
+  function defaultUkAngleNodes(endDate) {
+    return [
+      { id: "uk-1930", date: "1930-01", multiplier: 0.2 },
+      { id: "uk-1935", date: "1935-11", multiplier: 0.35 },
+      { id: "uk-1940", date: "1940-05", multiplier: 0.1 },
+      { id: "uk-1945", date: "1945-07", multiplier: -0.75 },
+      { id: "uk-1951", date: "1951-10", multiplier: 0.55 },
+      { id: "uk-1955", date: "1955-04", multiplier: 0.45 },
+      { id: "uk-1959", date: "1959-10", multiplier: 0.25 },
+      { id: "uk-1964", date: "1964-10", multiplier: -0.5 },
+      { id: "uk-1970", date: "1970-06", multiplier: 0.4 },
+      { id: "uk-1974", date: "1974-02", multiplier: -0.45 },
+      { id: "uk-1979", date: "1979-05", multiplier: 0.85 },
+      { id: "uk-1983", date: "1983-06", multiplier: 0.9 },
+      { id: "uk-1987", date: "1987-06", multiplier: 0.85 },
+      { id: "uk-1990", date: "1990-11", multiplier: 0.5 },
+      { id: "uk-1997", date: "1997-05", multiplier: -0.2 },
+      { id: "uk-2001", date: "2001-06", multiplier: -0.15 },
+      { id: "uk-2005", date: "2005-05", multiplier: -0.1 },
+      { id: "uk-2010", date: "2010-05", multiplier: 0.3 },
+      { id: "uk-2015", date: "2015-05", multiplier: 0.4 },
+      { id: "uk-2019", date: "2019-12", multiplier: 0.6 },
+      { id: "uk-2024", date: "2024-07", multiplier: -0.45 },
+      { id: "uk-end", date: endDate, multiplier: -0.45 }
+    ];
   }
 
   function defaultParties() {
@@ -16,16 +45,18 @@
         dissolved: "",
         positions: [{ title: "Electoral bloc", start: "1932-01", end: "1948-12" }],
         leaningScore: -4,
+        color: "#c2410c",
         tiedEventIds: [],
         tiedPartyIds: []
       },
       {
         id: "party-2",
-        name: "Conservative alliance",
-        established: "1930-01",
+        name: "Conservative Party",
+        established: "1834-01",
         dissolved: "",
-        positions: [{ title: "Electoral bloc", start: "1930-01", end: "2026-04" }],
+        positions: [{ title: "UK governing party", start: "1979-05", end: "1997-05" }],
         leaningScore: 4,
+        color: "#0087dc",
         tiedEventIds: [],
         tiedPartyIds: []
       }
@@ -40,7 +71,7 @@
         birthDate: "1882-01",
         deathDate: "1945-04",
         positions: [{ title: "US President", start: "1933-03", end: "1945-04" }],
-        leaningScore: -0.35,
+        leaningScore: -0.65,
         partyAffiliations: [{ partyId: "party-1", start: "1932-01", end: "1945-04" }],
         tiedEventIds: ["entry-2"],
         tiedPersonalityIds: [],
@@ -51,10 +82,10 @@
         name: "Margaret Thatcher",
         birthDate: "1925-10",
         deathDate: "2013-04",
-        positions: [{ title: "UK Prime Minister", start: "1979-05", end: "1990-11" }],
-        leaningScore: 0.55,
-        partyAffiliations: [{ partyId: "party-2", start: "1975-01", end: "1991-12" }],
-        tiedEventIds: [],
+        positions: [{ title: "Prime Minister of the United Kingdom", start: "1979-05", end: "1990-11" }],
+        leaningScore: 0.72,
+        partyAffiliations: [{ partyId: "party-2", start: "1959-10", end: "1992-04" }],
+        tiedEventIds: ["entry-4"],
         tiedPersonalityIds: [],
         scoreSegments: []
       }
@@ -62,17 +93,16 @@
   }
 
   function defaultData() {
+    const endDate = getCurrentMonth();
     return {
       timeline: {
         startDate: "1930-01",
-        endDate: getCurrentMonth(),
+        endDate,
         guideLineCount: 20,
-        guideLineGap: 20
+        guideLineGap: 20,
+        perspectiveDepth: 1
       },
-      angleNodes: [
-        { id: "node-start", date: "1930-01", multiplier: 1 },
-        { id: "node-end", date: getCurrentMonth(), multiplier: -1 }
-      ],
+      angleNodes: defaultUkAngleNodes(endDate),
       entries: [
         { id: "entry-1", type: "character", date: "1933-01", title: "Franklin D. Roosevelt", body: "The New Deal era begins reshaping American political economy." },
         { id: "entry-2", type: "event", date: "1945-05", title: "End of World War II in Europe", body: "A new international order begins to form after fascist defeat." },
@@ -101,6 +131,7 @@
         end: typeof row.end === "string" ? row.end : fallbackStart
       })),
       leaningScore: Number.isFinite(Number(party.leaningScore)) ? Number(party.leaningScore) : 0,
+      color: typeof party.color === "string" && party.color ? party.color : "#888888",
       tiedEventIds: Array.isArray(party.tiedEventIds) ? party.tiedEventIds.filter((id) => typeof id === "string") : [],
       tiedPartyIds: Array.isArray(party.tiedPartyIds) ? party.tiedPartyIds.filter((id) => typeof id === "string") : []
     };
@@ -146,19 +177,25 @@
     const partiesRaw = Array.isArray(data && data.parties) ? data.parties : fallback.parties;
     const personalitiesRaw = Array.isArray(data && data.personalities) ? data.personalities : fallback.personalities;
     const fallbackStart = typeof timeline.startDate === "string" ? timeline.startDate : fallback.timeline.startDate;
+    const fallbackEnd = typeof timeline.endDate === "string" ? timeline.endDate : fallback.timeline.endDate;
 
     return {
       timeline: {
         startDate: typeof timeline.startDate === "string" ? timeline.startDate : fallback.timeline.startDate,
-        endDate: typeof timeline.endDate === "string" ? timeline.endDate : fallback.timeline.endDate,
+        endDate: fallbackEnd,
         guideLineCount: Number.isFinite(Number(timeline.guideLineCount)) ? Math.max(0, Math.round(Number(timeline.guideLineCount))) : fallback.timeline.guideLineCount,
-        guideLineGap: Number.isFinite(Number(timeline.guideLineGap)) ? Math.max(1, Number(timeline.guideLineGap)) : fallback.timeline.guideLineGap
+        guideLineGap: Number.isFinite(Number(timeline.guideLineGap)) ? Math.max(1, Number(timeline.guideLineGap)) : fallback.timeline.guideLineGap,
+        perspectiveDepth: Number.isFinite(Number(timeline.perspectiveDepth))
+          ? Math.max(1, Math.min(3, Number(timeline.perspectiveDepth)))
+          : fallback.timeline.perspectiveDepth
       },
-      angleNodes: angleNodes.map((node, index) => ({
-        id: node.id || `node-${index + 1}`,
-        date: typeof node.date === "string" ? node.date : fallback.timeline.startDate,
-        multiplier: Number.isFinite(Number(node.multiplier)) ? Math.max(-1, Math.min(1, Number(node.multiplier))) : 0
-      })),
+      angleNodes: angleNodes.length
+        ? angleNodes.map((node, index) => ({
+            id: node.id || `node-${index + 1}`,
+            date: typeof node.date === "string" ? node.date : fallback.timeline.startDate,
+            multiplier: Number.isFinite(Number(node.multiplier)) ? Math.max(-1, Math.min(1, Number(node.multiplier))) : 0
+          }))
+        : fallback.angleNodes,
       entries: entries.map((entry, index) => ({
         id: entry.id || `entry-${index + 1}`,
         type: entry.type === "character" ? "character" : "event",
