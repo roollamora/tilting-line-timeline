@@ -89,6 +89,15 @@
       mask-image: linear-gradient(to bottom, #000 0%, #000 75%, rgba(0, 0, 0, 0.2) 100%);
     }
 
+    .zz-fill-layer {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+
     .line-wrap {
       position: absolute;
       top: 50%;
@@ -97,7 +106,6 @@
       height: 140px;
       transform: translate(-50%, -50%) rotate(var(--line-angle));
       transform-origin: center;
-      transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .guide-lines {
@@ -117,6 +125,10 @@
       stroke-linejoin: round;
       stroke-width: 1;
       vector-effect: non-scaling-stroke;
+    }
+
+    .guide-line-pink {
+      stroke: rgba(214, 58, 136, 0.4);
     }
 
     .line {
@@ -352,42 +364,6 @@
       line-height: 1.42;
     }
 
-    .actors-layer {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      pointer-events: none;
-      overflow: visible;
-    }
-
-    .party-band {
-      position: absolute;
-      left: 50%;
-      border-radius: 4px;
-      background: rgba(156, 63, 35, 0.12);
-      border: 1px solid rgba(17, 17, 17, 0.14);
-      box-sizing: border-box;
-      transform-origin: center top;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-
-    .party-band .bar-label {
-      font-size: 0.68rem;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: rgba(17, 17, 17, 0.55);
-      text-align: center;
-      max-width: 100%;
-      padding: 2px 6px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
     .scroll-progress {
       position: fixed;
       z-index: 8;
@@ -435,7 +411,6 @@
 </head>
 <body>
   <main class="stage" id="stage" aria-label="Scrollable political dominance timeline">
-    <div id="actors-layer" class="actors-layer" aria-hidden="true"></div>
     <section class="intro" aria-labelledby="page-title">
       <h1 id="page-title">Tilting Line Timeline</h1>
       <p>Scroll from January 1930 to today. The centre stays fixed while the line tilts according to editable political dominance nodes.</p>
@@ -461,6 +436,12 @@
         <input id="node-multiplier" type="number" min="-1" max="1" step="0.1">
       </div>
 
+      <div class="field">
+        <label for="perspective-depth">Perspective depth</label>
+        <input id="perspective-depth" type="range" min="1" max="3" step="0.01">
+        <p class="hint" id="perspective-depth-value"></p>
+      </div>
+
       <div class="actions">
         <button class="primary" id="save-node" type="button">Add / Update</button>
         <button class="secondary" id="remove-node" type="button">Remove</button>
@@ -476,6 +457,7 @@
     </div>
 
     <div class="line-viewport" aria-hidden="true">
+      <svg id="zz-fill-layer" class="zz-fill-layer" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>
       <div class="line-wrap">
         <svg class="guide-lines" id="guide-lines" viewBox="0 -900 1000 1800" preserveAspectRatio="none"></svg>
         <div class="line"></div>
@@ -497,16 +479,29 @@
     const nodeSelect = document.querySelector("#node-select");
     const nodeDateInput = document.querySelector("#node-date");
     const nodeMultiplierInput = document.querySelector("#node-multiplier");
+    const perspectiveDepthInput = document.querySelector("#perspective-depth");
+    const perspectiveDepthValue = document.querySelector("#perspective-depth-value");
     const saveNodeButton = document.querySelector("#save-node");
     const removeNodeButton = document.querySelector("#remove-node");
     const nodeSummary = document.querySelector("#node-summary");
     const dateValue = document.querySelector("#date-value");
     const dateAngle = document.querySelector("#date-angle");
     const guideLines = document.querySelector("#guide-lines");
+    const timelineLine = document.querySelector(".line");
     const newNodeValue = "__new_node__";
     const guideLineCount = Math.max(0, Number(timelineSettings.guideLineCount) || 20);
     const guideLineCentreGap = Math.max(1, Number(timelineSettings.guideLineGap) || 20);
+    let perspectiveDepth = clamp(Number(timelineSettings.perspectiveDepth) || 1, 1, 3);
+    const baseStageMinHeightPx = Math.max(1, parseFloat(getComputedStyle(stage).minHeight) || 12000);
+    const timelineMinThicknessPx = 20;
     const guideSamplePoints = [0, 1000];
+    let zzDirection = null;
+    let targetAngleDeg = 30;
+    let renderedAngleDeg = 30;
+    let latestMultiplier = 1;
+    let tiltRaf = 0;
+    let perspectiveAnchorDate = null;
+    let perspectiveFinalizeScheduled = false;
 
     let nodes = appData.angleNodes.map((node) => ({
       id: node.id,
@@ -522,8 +517,6 @@
     }
 
     const timelineEntries = appData.entries.slice().sort((left, right) => parseMonth(left.date) - parseMonth(right.date));
-    const parties = Array.isArray(appData.parties) ? appData.parties : [];
-    const actorsLayer = document.querySelector("#actors-layer");
 
     const monthFormatter = new Intl.DateTimeFormat("en", {
       month: "long",
@@ -556,12 +549,26 @@
       return `${year}-${String(month).padStart(2, "0")}`;
     }
 
+    function timeCondenseFactor() {
+      // Slider mapping: 1x -> 1x timeline span, 3x -> 6x condensed.
+      return 1 + (perspectiveDepth - 1) * 2.5;
+    }
+
+    function dateToBaseProgressUnclamped(date) {
+      return (date.getTime() - startDate.getTime()) / (endDate.getTime() - startDate.getTime());
+    }
+
+    function dateToDisplayProgressUnclamped(date) {
+      return dateToBaseProgressUnclamped(date) / timeCondenseFactor();
+    }
+
     function dateToProgress(date) {
-      return clamp((date.getTime() - startDate.getTime()) / (endDate.getTime() - startDate.getTime()), 0, 1);
+      return clamp(dateToDisplayProgressUnclamped(date), 0, 1);
     }
 
     function progressToDate(progress) {
-      const time = startDate.getTime() + progress * (endDate.getTime() - startDate.getTime());
+      const normalized = clamp(progress * timeCondenseFactor(), 0, 1);
+      const time = startDate.getTime() + normalized * (endDate.getTime() - startDate.getTime());
       return new Date(time);
     }
 
@@ -575,28 +582,395 @@
       }
 
       if (angle < 90) {
-        return 60 + (angle - 60) / 6;
+        return 60 + (angle - 60) / 4.8;
       }
 
       if (angle <= 120) {
-        return 115 + (angle - 90) / 6;
+        return 114 + (angle - 90) / 4.8;
       }
 
       return angle;
     }
 
+    function guideHalfThickness(x) {
+      return 5.6 + (64.4 * x) / 1000;
+    }
+
+    function perspectiveAdjustedGuideY(baseYAtX, baseYAtAnchor) {
+      return baseYAtAnchor + (baseYAtX - baseYAtAnchor) * perspectiveDepth;
+    }
+
+    function updatePerspectiveDepthLabel() {
+      if (!perspectiveDepthValue) {
+        return;
+      }
+      perspectiveDepthValue.textContent = `${perspectiveDepth.toFixed(2)}x depth | ${timeCondenseFactor().toFixed(2)}x time`;
+    }
+
+    function updateTimelineLineProfile() {
+      if (!timelineLine) {
+        return null;
+      }
+      const d = perspectiveDepth - 1;
+      const leftHalfPercent = (timelineMinThicknessPx / 140) * 50;
+      const offsetLeft = leftHalfPercent;
+      const offsetMid = 7;
+      const offsetShoulder = 18;
+      const depthLeft = 1.8;
+      const depthMid = 3.8;
+      const depthShoulder = 7.6;
+      const topLeft = clamp(50 - offsetLeft - depthLeft * d, 0, 100);
+      const topMid = clamp(50 - offsetMid - depthMid * d, 0, 100);
+      const topShoulder = clamp(50 - offsetShoulder - depthShoulder * d, 0, 100);
+      const bottomShoulder = clamp(50 + offsetShoulder + depthShoulder * d, 0, 100);
+      const bottomMid = clamp(50 + offsetMid + depthMid * d, 0, 100);
+      const bottomLeft = clamp(50 + offsetLeft + depthLeft * d, 0, 100);
+      timelineLine.style.clipPath =
+        `polygon(0 ${topLeft}%, 45% ${topMid}%, 65% ${topShoulder}%, 100% 0, 100% 100%, 65% ${bottomShoulder}%, 45% ${bottomMid}%, 0 ${bottomLeft}%)`;
+      return { topLeft, topMid, topShoulder, bottomShoulder, bottomMid, bottomLeft };
+    }
+
+    function applyScrollableSpanForTimeFactor() {
+      if (!stage) {
+        return;
+      }
+      const baseScrollRange = Math.max(1, baseStageMinHeightPx - window.innerHeight);
+      const adjustedScrollRange = baseScrollRange / timeCondenseFactor();
+      stage.style.minHeight = `${window.innerHeight + adjustedScrollRange}px`;
+    }
+
+    function lineWrapPercentPointToViewport(pxPercent, pyPercent, angleDeg) {
+      const lineWrap = document.querySelector(".line-wrap");
+      if (!lineWrap) {
+        return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      }
+      const width = lineWrap.offsetWidth;
+      const height = lineWrap.offsetHeight;
+      const localX = (pxPercent / 100) * width - width / 2;
+      const localY = (pyPercent / 100) * height - height / 2;
+      const theta = (angleDeg * Math.PI) / 180;
+      const rx = localX * Math.cos(theta) - localY * Math.sin(theta);
+      const ry = localX * Math.sin(theta) + localY * Math.cos(theta);
+      return { x: window.innerWidth / 2 + rx, y: window.innerHeight / 2 + ry };
+    }
+
+    function segmentViewportIntersections(p1, p2) {
+      const intersections = [];
+      const edges = [
+        { x1: 0, y1: 0, x2: window.innerWidth, y2: 0 },
+        { x1: window.innerWidth, y1: 0, x2: window.innerWidth, y2: window.innerHeight },
+        { x1: 0, y1: window.innerHeight, x2: window.innerWidth, y2: window.innerHeight },
+        { x1: 0, y1: 0, x2: 0, y2: window.innerHeight }
+      ];
+      edges.forEach((edge) => {
+        const x1 = p1.x;
+        const y1 = p1.y;
+        const x2 = p2.x;
+        const y2 = p2.y;
+        const x3 = edge.x1;
+        const y3 = edge.y1;
+        const x4 = edge.x2;
+        const y4 = edge.y2;
+        const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        if (Math.abs(denom) < 1e-9) {
+          return;
+        }
+        const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+        const u = ((x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2)) / denom;
+        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+          intersections.push({
+            x: x1 + t * (x2 - x1),
+            y: y1 + t * (y2 - y1)
+          });
+        }
+      });
+      return intersections;
+    }
+
+    function updateZZDirection(multiplier, angleDeg, profile) {
+      if (!profile) {
+        return;
+      }
+      const topA = lineWrapPercentPointToViewport(0, profile.topLeft, angleDeg);
+      const topB = lineWrapPercentPointToViewport(45, profile.topMid, angleDeg);
+      const topC = lineWrapPercentPointToViewport(65, profile.topShoulder, angleDeg);
+      const topD = lineWrapPercentPointToViewport(100, 0, angleDeg);
+      const intersections = [
+        ...segmentViewportIntersections(topA, topB),
+        ...segmentViewportIntersections(topB, topC),
+        ...segmentViewportIntersections(topC, topD)
+      ];
+      if (!intersections.length) {
+        return;
+      }
+      const target = intersections.slice().sort((a, b) => a.y - b.y)[0];
+      const origin = multiplier >= 0
+        ? { x: 0, y: window.innerHeight }
+        : { x: window.innerWidth, y: window.innerHeight };
+      const dx = target.x - origin.x;
+      const dy = target.y - origin.y;
+      const len = Math.hypot(dx, dy) || 1;
+      zzDirection = {
+        origin,
+        target,
+        vector: { x: dx, y: dy },
+        unit: { x: dx / len, y: dy / len },
+        length: len
+      };
+      window.ZZDirection = zzDirection;
+    }
+
+    function guideLocalY(side, lineNumber, x) {
+      const xAnchor = 500;
+      const halfAnchor = guideHalfThickness(xAnchor);
+      const gapAnchor = guideLineCentreGap * (halfAnchor / 27.3);
+      const yAnchor = side * (halfAnchor + lineNumber * gapAnchor);
+      const halfThickness = guideHalfThickness(x);
+      const scaledGap = guideLineCentreGap * (halfThickness / 27.3);
+      const offset = halfThickness + lineNumber * scaledGap;
+      const baseY = side * offset;
+      return perspectiveAdjustedGuideY(baseY, yAnchor);
+    }
+
+    function pinkGuideLocalY(side, lineNumber, x, angleDeg) {
+      const p = projectedPinkLocalPoint(side, lineNumber, x, angleDeg);
+      return p.y;
+    }
+
+    function getGuideTransformParams() {
+      const lineWrap = document.querySelector(".line-wrap");
+      const width = lineWrap ? lineWrap.offsetWidth : Math.max(window.innerWidth, 1);
+      const guideHeight = guideLines ? guideLines.clientHeight || 1800 : 1800;
+      return {
+        cx: window.innerWidth / 2,
+        cy: window.innerHeight / 2,
+        sx: width / 1000,
+        sy: guideHeight / 1800
+      };
+    }
+
+    function guideLocalPointToViewport(x, y, angleDeg, params = getGuideTransformParams()) {
+      const localX = (x - 500) * params.sx;
+      const localY = y * params.sy;
+      const theta = (angleDeg * Math.PI) / 180;
+      const rx = localX * Math.cos(theta) - localY * Math.sin(theta);
+      const ry = localX * Math.sin(theta) + localY * Math.cos(theta);
+      return { x: params.cx + rx, y: params.cy + ry };
+    }
+
+    function viewportPointToGuideLocal(xViewport, yViewport, angleDeg, params = getGuideTransformParams()) {
+      const dx = xViewport - params.cx;
+      const dy = yViewport - params.cy;
+      const theta = (angleDeg * Math.PI) / 180;
+      const localX = dx * Math.cos(theta) + dy * Math.sin(theta);
+      const localY = -dx * Math.sin(theta) + dy * Math.cos(theta);
+      return {
+        x: localX / params.sx + 500,
+        y: localY / params.sy
+      };
+    }
+
+    function projectedPinkLocalPoint(side, lineNumber, x, angleDeg, params = getGuideTransformParams()) {
+      const yBlack = guideLocalY(side, lineNumber, x);
+      const gap = guideLineCentreGap * (guideHalfThickness(x) / 27.3);
+      const shift = 1.38 * gap * params.sy;
+      const baseVp = guideLocalPointToViewport(x, yBlack, angleDeg, params);
+      const dir = zzDirection && zzDirection.unit ? zzDirection.unit : { x: 0, y: -1 };
+      const projectedVp = {
+        x: baseVp.x + dir.x * shift,
+        y: baseVp.y + dir.y * shift
+      };
+      return viewportPointToGuideLocal(projectedVp.x, projectedVp.y, angleDeg, params);
+    }
+
+    function lineFromPoints(p1, p2) {
+      const A = p1.y - p2.y;
+      const B = p2.x - p1.x;
+      const C = p1.x * p2.y - p2.x * p1.y;
+      return { A, B, C };
+    }
+
+    function lineFromPointAndDir(point, dir) {
+      const p2 = { x: point.x + dir.x, y: point.y + dir.y };
+      return lineFromPoints(point, p2);
+    }
+
+    function intersectLines(line1, line2) {
+      const { A: A1, B: B1, C: C1 } = line1;
+      const { A: A2, B: B2, C: C2 } = line2;
+      const det = A1 * B2 - A2 * B1;
+      if (Math.abs(det) < 1e-9) {
+        return null;
+      }
+      return {
+        x: (B1 * C2 - B2 * C1) / det,
+        y: (C1 * A2 - C2 * A1) / det
+      };
+    }
+
+    function timelineCenterPointAtViewportY(viewportY, angleDeg) {
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const theta = (angleDeg * Math.PI) / 180;
+      const sinT = Math.sin(theta);
+      const cosT = Math.cos(theta);
+      if (Math.abs(sinT) < 1e-6) {
+        return { x: cx, y: viewportY };
+      }
+      const t = (viewportY - cy) / sinT;
+      return { x: cx + t * cosT, y: viewportY };
+    }
+
+    function updateZZBandFill(angleDeg) {
+      if (!guideLines || !zzDirection || !stage) {
+        return;
+      }
+
+      const stageRect = stage.getBoundingClientRect();
+      const stageHeight = stage.offsetHeight;
+      const pFrom = dateToProgress(parseMonth("1945-01"));
+      const pTo = dateToProgress(parseMonth("1960-01"));
+      const yFrom = stageRect.top + pFrom * stageHeight;
+      const yTo = stageRect.top + pTo * stageHeight;
+
+      const zzDir = zzDirection.unit;
+      const zzLineFrom = lineFromPointAndDir(timelineCenterPointAtViewportY(yFrom, angleDeg), zzDir);
+      const zzLineTo = lineFromPointAndDir(timelineCenterPointAtViewportY(yTo, angleDeg), zzDir);
+
+      const side = 1;
+      const lineNumber = 1;
+      const params = getGuideTransformParams();
+      const blackLine = lineFromPoints(
+        guideLocalPointToViewport(0, guideLocalY(side, lineNumber, 0), angleDeg, params),
+        guideLocalPointToViewport(1000, guideLocalY(side, lineNumber, 1000), angleDeg, params)
+      );
+      const pinkP0 = projectedPinkLocalPoint(side, lineNumber, 0, angleDeg, params);
+      const pinkP1 = projectedPinkLocalPoint(side, lineNumber, 1000, angleDeg, params);
+      const pinkLine = lineFromPoints(
+        guideLocalPointToViewport(pinkP0.x, pinkP0.y, angleDeg, params),
+        guideLocalPointToViewport(pinkP1.x, pinkP1.y, angleDeg, params)
+      );
+
+      const blackFrom = intersectLines(blackLine, zzLineFrom);
+      const pinkFrom = intersectLines(pinkLine, zzLineFrom);
+      const pinkTo = intersectLines(pinkLine, zzLineTo);
+      const blackTo = intersectLines(blackLine, zzLineTo);
+
+      if (!blackFrom || !pinkFrom || !pinkTo || !blackTo) {
+        const existing = guideLines.querySelector("#zz-band-fill");
+        if (existing) {
+          existing.remove();
+        }
+        return;
+      }
+
+      const p1 = viewportPointToGuideLocal(blackFrom.x, blackFrom.y, angleDeg, params);
+      const p2 = viewportPointToGuideLocal(pinkFrom.x, pinkFrom.y, angleDeg, params);
+      const p3 = viewportPointToGuideLocal(pinkTo.x, pinkTo.y, angleDeg, params);
+      const p4 = viewportPointToGuideLocal(blackTo.x, blackTo.y, angleDeg, params);
+      const points = [`${p1.x},${p1.y}`, `${p2.x},${p2.y}`, `${p3.x},${p3.y}`, `${p4.x},${p4.y}`].join(" ");
+
+      let band = guideLines.querySelector("#zz-band-fill");
+      if (!band) {
+        band = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        band.setAttribute("id", "zz-band-fill");
+        band.setAttribute("fill", "rgba(214, 58, 136, 0.22)");
+        band.setAttribute("stroke", "rgba(214, 58, 136, 0.45)");
+        band.setAttribute("stroke-width", "1");
+        band.setAttribute("vector-effect", "non-scaling-stroke");
+        guideLines.append(band);
+      }
+      band.setAttribute("points", points);
+    }
+
+    function syncScrollToAnchoredDate(anchorDate) {
+      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      const anchoredProgress = clamp(dateToDisplayProgressUnclamped(anchorDate), 0, 1);
+      const targetTop = Math.max(0, anchoredProgress * maxScroll);
+      window.scrollTo(0, targetTop);
+      document.documentElement.scrollTop = targetTop;
+      document.body.scrollTop = targetTop;
+    }
+
+    function finalizePerspectiveAnchor() {
+      const anchor = perspectiveAnchorDate;
+      if (!anchor) {
+        document.documentElement.style.scrollBehavior = "";
+        return;
+      }
+      syncScrollToAnchoredDate(anchor);
+      if (perspectiveFinalizeScheduled) {
+        return;
+      }
+      perspectiveFinalizeScheduled = true;
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          perspectiveFinalizeScheduled = false;
+          perspectiveAnchorDate = null;
+          document.documentElement.style.scrollBehavior = "";
+          updateTimeline();
+        });
+      });
+    }
+
+    function initializePerspectiveDepthControl() {
+      if (!perspectiveDepthInput) {
+        return;
+      }
+      perspectiveDepthInput.value = perspectiveDepth.toFixed(2);
+      updatePerspectiveDepthLabel();
+      updateTimelineLineProfile();
+      applyScrollableSpanForTimeFactor();
+      perspectiveDepthInput.addEventListener("pointerdown", () => {
+        perspectiveAnchorDate = progressToDate(getScrollProgress());
+        document.documentElement.style.scrollBehavior = "auto";
+      });
+      perspectiveDepthInput.addEventListener("pointerup", finalizePerspectiveAnchor);
+      perspectiveDepthInput.addEventListener("pointercancel", finalizePerspectiveAnchor);
+      perspectiveDepthInput.addEventListener("change", finalizePerspectiveAnchor);
+      perspectiveDepthInput.addEventListener("input", () => {
+        const fixedCenterDate = perspectiveAnchorDate || progressToDate(getScrollProgress());
+        perspectiveDepth = clamp(Number(perspectiveDepthInput.value), 1, 3);
+        timelineSettings.perspectiveDepth = perspectiveDepth;
+        window.TiltingLineStore.save(appData);
+        updatePerspectiveDepthLabel();
+        updateTimelineLineProfile();
+        applyScrollableSpanForTimeFactor();
+        renderYearMarkers();
+        renderEvents();
+        syncScrollToAnchoredDate(fixedCenterDate);
+        window.requestAnimationFrame(updateTimeline);
+      });
+    }
+
     function guidePathFor(side, lineNumber) {
+      const xAnchor = 500;
+      const halfAnchor = guideHalfThickness(xAnchor);
+      const gapAnchor = guideLineCentreGap * (halfAnchor / 27.3);
+      const yAnchor = side * (halfAnchor + lineNumber * gapAnchor);
       const coordinates = guideSamplePoints.map((x) => {
-        const halfThickness = 5.6 + (64.4 * x) / 1000;
+        const halfThickness = guideHalfThickness(x);
         const scaledGap = guideLineCentreGap * (halfThickness / 27.3);
         const offset = halfThickness + lineNumber * scaledGap;
-        return `${x},${side * offset}`;
+        const baseY = side * offset;
+        const y = perspectiveAdjustedGuideY(baseY, yAnchor);
+        return `${x},${y}`;
       });
 
       return `M ${coordinates.join(" L ")}`;
     }
 
-    function renderGuideLines() {
+    function pinkGuidePathFor(side, lineNumber, angleDeg) {
+      const params = getGuideTransformParams();
+      const coordinates = guideSamplePoints.map((x) => {
+        const projected = projectedPinkLocalPoint(side, lineNumber, x, angleDeg, params);
+        return `${projected.x},${projected.y}`;
+      });
+
+      return `M ${coordinates.join(" L ")}`;
+    }
+
+    function renderGuideLines(angleDeg = 30) {
       const fragment = document.createDocumentFragment();
       guideLines.innerHTML = "";
 
@@ -606,10 +980,20 @@
         upperPath.setAttribute("d", guidePathFor(-1, lineNumber));
         fragment.append(upperPath);
 
+        const upperPinkPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        upperPinkPath.setAttribute("class", "guide-line guide-line-pink");
+        upperPinkPath.setAttribute("d", pinkGuidePathFor(-1, lineNumber, angleDeg));
+        fragment.append(upperPinkPath);
+
         const lowerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
         lowerPath.setAttribute("class", "guide-line");
         lowerPath.setAttribute("d", guidePathFor(1, lineNumber));
         fragment.append(lowerPath);
+
+        const lowerPinkPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        lowerPinkPath.setAttribute("class", "guide-line guide-line-pink");
+        lowerPinkPath.setAttribute("d", pinkGuidePathFor(1, lineNumber, angleDeg));
+        fragment.append(lowerPinkPath);
       }
 
       guideLines.append(fragment);
@@ -664,18 +1048,45 @@
 
     function getScrollProgress() {
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      return maxScroll > 0 ? clamp((window.scrollY / maxScroll) * 5, 0, 1) : 0;
+      return maxScroll > 0 ? clamp(window.scrollY / maxScroll, 0, 1) : 0;
+    }
+
+    function applyTiltScene(angleDeg, multiplier) {
+      document.documentElement.style.setProperty("--line-angle", `${angleDeg}deg`);
+      const profile = updateTimelineLineProfile();
+      updateZZDirection(multiplier, angleDeg, profile);
+      renderGuideLines(angleDeg);
+      updateZZBandFill(angleDeg);
+    }
+
+    function tickTiltAnimation() {
+      tiltRaf = 0;
+      const delta = targetAngleDeg - renderedAngleDeg;
+      renderedAngleDeg += delta * 0.22;
+      if (Math.abs(delta) < 0.02) {
+        renderedAngleDeg = targetAngleDeg;
+      }
+      applyTiltScene(renderedAngleDeg, latestMultiplier);
+      if (Math.abs(targetAngleDeg - renderedAngleDeg) >= 0.02) {
+        tiltRaf = window.requestAnimationFrame(tickTiltAnimation);
+      }
     }
 
     function updateTimeline() {
       const progress = getScrollProgress();
-      const currentDate = progressToDate(progress);
+      const currentDate =
+        perspectiveAnchorDate != null ? perspectiveAnchorDate : progressToDate(progress);
       const multiplier = interpolateMultiplier(currentDate);
       const rawAngle = multiplierToAngle(multiplier);
       const angle = mapDisplayedAngle(rawAngle);
+      const stateProgress = clamp(dateToBaseProgressUnclamped(currentDate), 0, 1);
 
-      document.documentElement.style.setProperty("--line-angle", `${angle}deg`);
-      document.documentElement.style.setProperty("--progress-height", `${progress * 100}%`);
+      targetAngleDeg = angle;
+      latestMultiplier = multiplier;
+      document.documentElement.style.setProperty("--progress-height", `${stateProgress * 100}%`);
+      if (!tiltRaf) {
+        tiltRaf = window.requestAnimationFrame(tickTiltAnimation);
+      }
       dateValue.textContent = monthFormatter.format(currentDate);
       dateAngle.textContent = `${angle.toFixed(1)} deg, ${multiplier >= 0 ? "+" : ""}${multiplier.toFixed(2)}`;
     }
@@ -764,14 +1175,19 @@
     }
 
     function renderYearMarkers() {
+      stage.querySelectorAll(".year-marker").forEach((el) => el.remove());
       const fragment = document.createDocumentFragment();
       const startYear = startDate.getFullYear();
       const endYear = endDate.getFullYear();
 
       for (let year = startYear; year <= endYear; year += 10) {
+        const progress = dateToDisplayProgressUnclamped(new Date(year, 0, 1));
+        if (progress < 0 || progress > 1) {
+          continue;
+        }
         const marker = document.createElement("div");
         marker.className = "year-marker";
-        marker.style.top = `${dateToProgress(new Date(year, 0, 1)) * 100}%`;
+        marker.style.top = `${progress * 100}%`;
         marker.innerHTML = `<span>${year}</span>`;
         fragment.append(marker);
       }
@@ -780,61 +1196,30 @@
     }
 
     function renderEvents() {
+      stage.querySelectorAll(".event").forEach((el) => el.remove());
       const fragment = document.createDocumentFragment();
 
-      timelineEntries.forEach((event, index) => {
+      const visibleEntries = timelineEntries.filter((event) => String(event.type || "").toLowerCase() !== "character");
+
+      let visibleIndex = 0;
+      visibleEntries.forEach((event) => {
+        const progress = dateToDisplayProgressUnclamped(parseMonth(event.date));
+        if (progress < 0 || progress > 1) {
+          return;
+        }
         const element = document.createElement("article");
-        element.className = `event ${index % 2 === 0 ? "left" : "right"}`;
-        element.style.top = `${dateToProgress(parseMonth(event.date)) * 100}%`;
+        element.className = `event ${visibleIndex % 2 === 0 ? "left" : "right"}`;
+        element.style.top = `${progress * 100}%`;
         element.innerHTML = `
           <time>${monthFormatter.format(parseMonth(event.date))}</time>
           <strong>${event.title} (${event.type})</strong>
           <p>${event.body}</p>
         `;
         fragment.append(element);
+        visibleIndex += 1;
       });
 
       stage.append(fragment);
-    }
-
-    function partyActivityRange(party) {
-      let start = monthToNumber(party.established);
-      let end = party.dissolved ? monthToNumber(party.dissolved) : monthToNumber(toMonthValue(endDate));
-      (party.positions || []).forEach((row) => {
-        start = Math.min(start, monthToNumber(row.start));
-        end = Math.max(end, monthToNumber(row.end));
-      });
-      return { start, end };
-    }
-
-    function renderActorsLayer() {
-      if (!actorsLayer) {
-        return;
-      }
-      actorsLayer.innerHTML = "";
-
-      parties.forEach((party) => {
-        const range = partyActivityRange(party);
-        const startMonth = numberToMonth(range.start);
-        const endMonth = numberToMonth(range.end);
-
-        const topProgress = dateToProgress(parseMonth(startMonth));
-        const bottomProgress = dateToProgress(parseMonth(endMonth));
-        const height = Math.max(0.15, (bottomProgress - topProgress) * 100);
-
-        const band = document.createElement("div");
-        band.className = "party-band";
-        band.style.top = `${topProgress * 100}%`;
-        band.style.height = `${height}%`;
-        band.style.width = "120px";
-        band.style.transform = "translate(-50%, 0) rotate(var(--line-angle))";
-        band.title = party.name;
-        const partyLabel = document.createElement("span");
-        partyLabel.className = "bar-label";
-        partyLabel.textContent = party.name;
-        band.append(partyLabel);
-        actorsLayer.append(band);
-      });
     }
 
     nodeSelect.addEventListener("change", () => {
@@ -856,10 +1241,10 @@
     removeNodeButton.addEventListener("click", removeSelectedNode);
     window.addEventListener("scroll", updateTimeline, { passive: true });
 
+    initializePerspectiveDepthControl();
     renderGuideLines();
     renderYearMarkers();
     renderEvents();
-    renderActorsLayer();
     renderNodeControls();
     updateTimeline();
 
@@ -867,8 +1252,8 @@
     window.addEventListener("resize", () => {
       window.clearTimeout(resizeActorsTimer);
       resizeActorsTimer = window.setTimeout(() => {
+        applyScrollableSpanForTimeFactor();
         renderGuideLines();
-        renderActorsLayer();
         updateTimeline();
       }, 120);
     });
