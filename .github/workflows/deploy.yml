@@ -11,17 +11,18 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout source
+        run: git clone --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git src
+      - name: Build gh-pages branch
         run: |
-          git clone --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git site
-          cd site
-          git checkout -b gh-pages
-          rm -rf .git/refs/heads/main
-      - name: Push to gh-pages
-        run: |
-          cd site
+          mkdir deploy && cd deploy
+          git init
+          git checkout --orphan gh-pages
+          cp -r ../src/* ../src/.nojekyll . 2>/dev/null || true
+          rm -rf .github backups chat-history safe-pull.sh push.sh
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Deploy from ${{ github.sha }}"
-          git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages
+          git commit -m "Deploy ${{ github.sha }}"
+          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push --force origin gh-pages
