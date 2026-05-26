@@ -6,12 +6,13 @@ cd "$(dirname "$0")"
 MSG="${1:-Update}"
 
 # Extract current version number from index.html
-CURRENT_V=$(grep -oP '(?<=v)\d+' index.html | head -1 || echo "0")
+CURRENT_V=$(grep -o 'v[0-9][0-9]*' index.html | head -1 | tr -d 'v')
+CURRENT_V=${CURRENT_V:-0}
 NEXT_V=$((CURRENT_V + 1))
-TIMESTAMP=$(date +"%Y-%m-%d %H:%M UTC%z" | sed 's/\([+-][0-9][0-9]\)\([0-9][0-9]\)/\1:\2/')
+TIMESTAMP=$(date +"%Y-%m-%d %H:%M UTC%z")
 
 # Update the version stamp in index.html
-sed -i '' "s|v${CURRENT_V} — [^<]*|v${NEXT_V} — ${TIMESTAMP}|" index.html
+sed -i '' "s|v${CURRENT_V} —[^<]*|v${NEXT_V} — ${TIMESTAMP}|" index.html
 
 # Also sync latest chat history into repo
 TRANSCRIPT_SRC="$HOME/.cursor/projects/Users-roulla-Projects-Tilting-Line/agent-transcripts"
