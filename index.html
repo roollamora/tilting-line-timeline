@@ -89,15 +89,6 @@
       mask-image: linear-gradient(to bottom, #000 0%, #000 75%, rgba(0, 0, 0, 0.2) 100%);
     }
 
-    .zz-fill-layer {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 2;
-    }
-
     .line-wrap {
       position: absolute;
       top: 50%;
@@ -106,6 +97,7 @@
       height: 140px;
       transform: translate(-50%, -50%) rotate(var(--line-angle));
       transform-origin: center;
+      transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .guide-lines {
@@ -118,6 +110,14 @@
       transform: translateY(-50%);
     }
 
+    .guide-line-pink {
+      stroke: rgba(214, 58, 136, 0.4);
+    }
+
+    .person-card {
+      pointer-events: none;
+    }
+
     .guide-line {
       fill: none;
       stroke: rgba(5, 5, 5, 0.24);
@@ -125,14 +125,6 @@
       stroke-linejoin: round;
       stroke-width: 1;
       vector-effect: non-scaling-stroke;
-    }
-
-    .guide-line-pink {
-      stroke: rgba(214, 58, 136, 0.4);
-    }
-
-    .person-card {
-      pointer-events: none;
     }
 
     .line {
@@ -345,6 +337,157 @@
       left: -54px;
     }
 
+    /* event card connectors that extend to an adjacent background gif */
+    .event.has-gif-right::before { width: calc(50% + 32px - 2px); right: auto; left: 100%; }
+    .event.has-gif-left::before  { width: calc(50% + 32px - 2px); left: auto; right: 100%; }
+
+    .bg-gif {
+      position: absolute;
+      z-index: 1;
+      width: 28vw;
+      max-width: 400px;
+      aspect-ratio: 4 / 3;
+      mix-blend-mode: multiply;
+      opacity: 0;
+      pointer-events: none;
+      will-change: opacity;
+      transform: translateY(-50%);
+      background-size: 150% 150%;
+      background-position: center;
+      background-repeat: no-repeat;
+      mask-image: radial-gradient(
+        ellipse at 50% 50%,
+        rgba(0, 0, 0, 0.82) 0%,
+        rgba(0, 0, 0, 0.58) 25%,
+        rgba(0, 0, 0, 0.28) 50%,
+        rgba(0, 0, 0, 0.08) 68%,
+        rgba(0, 0, 0, 0.02) 80%,
+        transparent 90%
+      );
+      -webkit-mask-image: radial-gradient(
+        ellipse at 50% 50%,
+        rgba(0, 0, 0, 0.82) 0%,
+        rgba(0, 0, 0, 0.58) 25%,
+        rgba(0, 0, 0, 0.28) 50%,
+        rgba(0, 0, 0, 0.08) 68%,
+        rgba(0, 0, 0, 0.02) 80%,
+        transparent 90%
+      );
+    }
+
+    .bg-gif.right { left: calc(50% + 32px); }
+    .bg-gif.left  { right: calc(50% + 32px); }
+
+    /* ─── Marble orbs rolling on the tilting line ─── */
+    .bubble-viewport {
+      position: fixed;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .bubble-wrap {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 420vmax;
+      height: 140px;
+      transform: translate(-50%, -50%) rotate(var(--line-angle));
+      transform-origin: center;
+      transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .line-orbs {
+      position: absolute;
+      inset: 0;
+    }
+
+    .event-bubble {
+      /* Per-orb colours — overridden by .bubble-left for cool tone. */
+      --orb-color: #9c3f23;
+      --orb-halo: rgba(220, 100, 60, 0.75);
+
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--orb-color);
+      box-shadow:
+        0 0 calc(14px * var(--glow, 0)) calc(1.5px * var(--glow, 0)) var(--orb-halo);
+      text-decoration: none;
+      opacity: 0;
+      pointer-events: auto;
+      cursor: pointer;
+      will-change: transform, opacity, filter;
+      transform-origin: center;
+      transform:
+        translate(-50%, -50%)
+        translateX(var(--line-offset, 0px))
+        translateY(var(--perp-offset, 0px))
+        scale(var(--scale, 1));
+      transition: opacity 0.4s, box-shadow 0.3s;
+      animation: orb-breathe 3.8s ease-in-out infinite;
+    }
+
+    .bubble-left {
+      --orb-color: #2c5f7a;
+      --orb-halo: rgba(95, 170, 205, 0.75);
+    }
+
+    @keyframes orb-breathe {
+      0%, 100% { filter: drop-shadow(0 0 2px var(--orb-halo)); }
+      50%      { filter: drop-shadow(0 0 8px var(--orb-halo)); }
+    }
+
+    .bubble-label {
+      position: absolute;
+      bottom: calc(100% + 12px);
+      left: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 6px 12px 7px;
+      border: 1px solid rgba(17, 17, 17, 0.12);
+      border-radius: 10px;
+      background: var(--paper);
+      box-shadow: 0 8px 22px rgba(17, 17, 17, 0.18);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      white-space: nowrap;
+      /* Counter-rotate by the line tilt so the text stays upright */
+      transform:
+        translateX(-50%)
+        translateY(4px)
+        scale(0.96)
+        rotate(calc(-1 * var(--line-angle, 0deg)));
+      transform-origin: center bottom;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .bubble-label time {
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .event-bubble:hover .bubble-label {
+      opacity: 1;
+      transform:
+        translateX(-50%)
+        translateY(0)
+        scale(1)
+        rotate(calc(-1 * var(--line-angle, 0deg)));
+    }
+
     .event time {
       display: block;
       color: var(--accent);
@@ -368,6 +511,42 @@
       line-height: 1.42;
     }
 
+    .actors-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .party-band {
+      position: absolute;
+      left: 50%;
+      border-radius: 4px;
+      background: rgba(156, 63, 35, 0.12);
+      border: 1px solid rgba(17, 17, 17, 0.14);
+      box-sizing: border-box;
+      transform-origin: center top;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .party-band .bar-label {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(17, 17, 17, 0.55);
+      text-align: center;
+      max-width: 100%;
+      padding: 2px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .scroll-progress {
       position: fixed;
       z-index: 8;
@@ -377,6 +556,326 @@
       height: var(--progress-height, 0%);
       background: var(--accent);
       pointer-events: none;
+    }
+
+    /* ─── Liquid-glass widget system ─── */
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .ctrl-bar {
+      position: fixed;
+      z-index: 6;
+      top: 218px;
+      left: 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      max-width: calc(100vw - 48px);
+    }
+
+    .ctrl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 252, 244, 0.18));
+      box-shadow:
+        0 10px 28px rgba(17, 17, 17, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      font: inherit;
+      font-size: 0.86rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.18s, color 0.18s;
+    }
+
+    .ctrl-btn:hover { transform: translateY(-1px); }
+    .ctrl-btn:active { transform: translateY(0); }
+
+    .ctrl-btn svg { flex-shrink: 0; }
+
+    .ctrl-chevron {
+      transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+      color: var(--muted);
+    }
+
+    .ctrl-dropdown { position: relative; }
+
+    .ctrl-dropdown.open .ctrl-chevron {
+      transform: rotate(180deg);
+      color: var(--accent);
+    }
+
+    .ctrl-dropdown-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      width: min(280px, calc(100vw - 48px));
+      padding: 12px 14px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 252, 244, 0.22));
+      box-shadow:
+        0 18px 50px rgba(17, 17, 17, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.65),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      transform-origin: top left;
+      animation: ctrlPanelIn 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .ctrl-dropdown-panel[hidden] { display: none; }
+
+    @keyframes ctrlPanelIn {
+      from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .ctrl-audio-slot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .widget-menu-list {
+      display: grid;
+      gap: 4px;
+    }
+
+    .widget-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 12px;
+      background: rgba(17, 17, 17, 0.04);
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      transition: background 0.18s, color 0.18s;
+    }
+
+    .widget-menu-item:hover {
+      background: rgba(17, 17, 17, 0.08);
+    }
+
+    .widget-menu-item.active {
+      background: var(--ink);
+      color: #fffaf0;
+    }
+
+    .widget-menu-item .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(17, 17, 17, 0.25);
+      flex-shrink: 0;
+    }
+
+    .widget-menu-item.active .dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(156, 63, 35, 0.28);
+    }
+
+    .widget-menu-item .label {
+      flex: 1;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      font-size: 0.92rem;
+    }
+
+    .widget-menu-item .state {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.6;
+    }
+
+    .ctrl-dropdown-panel .hint {
+      margin: 10px 0 0;
+      padding-top: 10px;
+      border-top: 1px solid rgba(17, 17, 17, 0.08);
+      font-size: 0.78rem;
+      line-height: 1.4;
+      color: var(--muted);
+    }
+
+    .widget {
+      position: fixed;
+      z-index: 6;
+      width: min(300px, calc(100vw - 48px));
+      padding: 14px 16px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 252, 244, 0.18));
+      box-shadow:
+        0 16px 44px rgba(17, 17, 17, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      transition:
+        top 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        left 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        right 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        bottom 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.18s,
+        box-shadow 0.18s,
+        opacity 0.2s;
+    }
+
+    .widget.dragging {
+      transition: transform 0.12s, box-shadow 0.12s;
+      z-index: 11;
+      transform: scale(1.025);
+      box-shadow:
+        0 26px 70px rgba(17, 17, 17, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+    }
+
+    .widget-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .widget.dragging .widget-header { cursor: grabbing; }
+
+    .widget-labels {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .widget-eyebrow {
+      color: var(--ink);
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+
+    .widget-title {
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .widget-close {
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: rgba(17, 17, 17, 0.08);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.18s, color 0.18s;
+      flex-shrink: 0;
+    }
+
+    .widget-close:hover {
+      background: var(--accent);
+      color: #fffaf0;
+    }
+
+    .widget-spark {
+      display: block;
+      width: 100%;
+      height: auto;
+      margin: 10px 0 8px;
+      overflow: visible;
+    }
+
+    .spark-fill {
+      fill: rgba(156, 63, 35, 0.10);
+      stroke: none;
+    }
+
+    .spark-line {
+      fill: none;
+      stroke: var(--ink);
+      stroke-width: 1.2;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      vector-effect: non-scaling-stroke;
+      opacity: 0.82;
+    }
+
+    .spark-bar-pos { fill: var(--accent); }
+    .spark-bar-neg { fill: rgba(17, 17, 17, 0.55); }
+
+    .spark-baseline {
+      stroke: rgba(17, 17, 17, 0.22);
+      stroke-width: 1;
+      stroke-dasharray: 2 3;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .spark-cursor {
+      stroke: var(--accent);
+      stroke-width: 1;
+      stroke-dasharray: 2 2;
+      vector-effect: non-scaling-stroke;
+      opacity: 0.78;
+    }
+
+    .spark-dot {
+      fill: var(--accent);
+      stroke: var(--paper);
+      stroke-width: 1.5;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .widget-readout {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .widget-price {
+      font-size: 1.22rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .widget-date {
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
     }
 
     @media (max-width: 760px) {
@@ -415,11 +914,28 @@
 </head>
 <body>
   <main class="stage" id="stage" aria-label="Scrollable political dominance timeline">
+    <div id="actors-layer" class="actors-layer" aria-hidden="true"></div>
     <section class="intro" aria-labelledby="page-title">
       <h1 id="page-title">Tilting Line Timeline</h1>
-      <p>Scroll from January 1930 to today. Person cards span birth to death on guide slots; fill colour follows party affiliation. UK political climate nodes reshape the tilt every few years.</p>
+      <p>Scroll from January 1930 to today. The centre stays fixed while the line tilts according to editable political dominance nodes.</p>
       <a href="admin.html">Open Admin / Management</a>
     </section>
+
+    <aside class="ctrl-bar" id="ctrl-bar" aria-label="Display controls">
+      <div class="ctrl-dropdown" id="widget-dropdown">
+        <button class="ctrl-btn ctrl-btn--dropdown" id="widget-dropdown-trigger" type="button" aria-expanded="false" aria-controls="widget-dropdown-panel">
+          <svg class="ctrl-chevron" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
+            <path d="M0 0 L5 6 L10 0 Z" fill="currentColor"/>
+          </svg>
+          <span>Data widgets</span>
+        </button>
+        <div class="ctrl-dropdown-panel" id="widget-dropdown-panel" role="region" hidden>
+          <div class="widget-menu-list" id="widget-menu-list"></div>
+          <p class="hint">Drag a widget by its header to snap it to the left, right, or bottom edge.</p>
+        </div>
+      </div>
+      <div class="ctrl-audio-slot" id="ctrl-audio-slot"></div>
+    </aside>
 
     <aside class="controls" aria-labelledby="controls-title">
       <h2 id="controls-title">Angle Change Nodes</h2>
@@ -440,12 +956,6 @@
         <input id="node-multiplier" type="number" min="-1" max="1" step="0.1">
       </div>
 
-      <div class="field">
-        <label for="perspective-depth">Perspective depth</label>
-        <input id="perspective-depth" type="range" min="1" max="3" step="0.01">
-        <p class="hint" id="perspective-depth-value"></p>
-      </div>
-
       <div class="actions">
         <button class="primary" id="save-node" type="button">Add / Update</button>
         <button class="secondary" id="remove-node" type="button">Remove</button>
@@ -461,14 +971,20 @@
     </div>
 
     <div class="line-viewport" aria-hidden="true">
-      <svg id="zz-fill-layer" class="zz-fill-layer" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>
       <div class="line-wrap">
         <svg class="guide-lines" id="guide-lines" viewBox="0 -900 1000 1800" preserveAspectRatio="none"></svg>
         <div class="line"></div>
       </div>
     </div>
+    <div class="bubble-viewport" aria-label="Linked context events">
+      <div class="bubble-wrap">
+        <div id="bubble-layer" class="line-orbs"></div>
+      </div>
+    </div>
     <div class="line-centre" aria-hidden="true"></div>
     <div class="scroll-progress" aria-hidden="true"></div>
+
+    <div id="widget-root" aria-hidden="true"></div>
   </main>
 
   <script src="data-store.js"></script>
@@ -483,31 +999,31 @@
     const nodeSelect = document.querySelector("#node-select");
     const nodeDateInput = document.querySelector("#node-date");
     const nodeMultiplierInput = document.querySelector("#node-multiplier");
-    const perspectiveDepthInput = document.querySelector("#perspective-depth");
-    const perspectiveDepthValue = document.querySelector("#perspective-depth-value");
     const saveNodeButton = document.querySelector("#save-node");
     const removeNodeButton = document.querySelector("#remove-node");
     const nodeSummary = document.querySelector("#node-summary");
     const dateValue = document.querySelector("#date-value");
     const dateAngle = document.querySelector("#date-angle");
     const guideLines = document.querySelector("#guide-lines");
-    const timelineLine = document.querySelector(".line");
     const newNodeValue = "__new_node__";
     const guideLineCount = Math.max(0, Number(timelineSettings.guideLineCount) || 20);
     const guideLineCentreGap = Math.max(1, Number(timelineSettings.guideLineGap) || 20);
-    let perspectiveDepth = clamp(Number(timelineSettings.perspectiveDepth) || 1, 1, 3);
-    const baseStageMinHeightPx = Math.max(1, parseFloat(getComputedStyle(stage).minHeight) || 12000);
-    const timelineMinThicknessPx = 20;
     const guideSamplePoints = [0, 1000];
+    const timelineLine = document.querySelector(".line");
+    const timelineMinThicknessPx = 20;
+    let perspectiveDepth = clamp(Number(timelineSettings.perspectiveDepth) || 1, 1, 3);
     let zzDirection = null;
-    let targetAngleDeg = 30;
-    let renderedAngleDeg = 30;
-    let latestMultiplier = 1;
-    let tiltRaf = 0;
-    let perspectiveAnchorDate = null;
-    let perspectiveFinalizeScheduled = false;
 
-    let nodes = appData.angleNodes.map((node) => ({
+    // If the timeline is in "computed" mode AND we have a non-empty computed
+    // node list cached on save, use those nodes for the angle curve. Otherwise
+    // fall back to the manually authored angleNodes.
+    const computedNodes = (timelineSettings.computed && Array.isArray(timelineSettings.computed.nodes))
+      ? timelineSettings.computed.nodes
+      : [];
+    const useComputed = timelineSettings.angleMode === "computed" && computedNodes.length >= 2;
+    const sourceNodes = useComputed ? computedNodes : appData.angleNodes;
+
+    let nodes = sourceNodes.map((node) => ({
       id: node.id,
       date: node.date,
       multiplier: Number(node.multiplier)
@@ -521,9 +1037,10 @@
     }
 
     const timelineEntries = appData.entries.slice().sort((left, right) => parseMonth(left.date) - parseMonth(right.date));
-    const parties = appData.parties;
-    const personalities = appData.personalities;
+    const parties = Array.isArray(appData.parties) ? appData.parties : [];
+    const personalities = Array.isArray(appData.personalities) ? appData.personalities : [];
     const PERSON_CARD_OPACITY = 0.3;
+    const actorsLayer = document.querySelector("#actors-layer");
 
     const monthFormatter = new Intl.DateTimeFormat("en", {
       month: "long",
@@ -556,26 +1073,12 @@
       return `${year}-${String(month).padStart(2, "0")}`;
     }
 
-    function timeCondenseFactor() {
-      // Slider mapping: 1x -> 1x timeline span, 3x -> 6x condensed.
-      return 1 + (perspectiveDepth - 1) * 2.5;
-    }
-
-    function dateToBaseProgressUnclamped(date) {
-      return (date.getTime() - startDate.getTime()) / (endDate.getTime() - startDate.getTime());
-    }
-
-    function dateToDisplayProgressUnclamped(date) {
-      return dateToBaseProgressUnclamped(date) / timeCondenseFactor();
-    }
-
     function dateToProgress(date) {
-      return clamp(dateToDisplayProgressUnclamped(date), 0, 1);
+      return clamp((date.getTime() - startDate.getTime()) / (endDate.getTime() - startDate.getTime()), 0, 1);
     }
 
     function progressToDate(progress) {
-      const normalized = clamp(progress * timeCondenseFactor(), 0, 1);
-      const time = startDate.getTime() + normalized * (endDate.getTime() - startDate.getTime());
+      const time = startDate.getTime() + progress * (endDate.getTime() - startDate.getTime());
       return new Date(time);
     }
 
@@ -589,11 +1092,11 @@
       }
 
       if (angle < 90) {
-        return 60 + (angle - 60) / 4.8;
+        return 60 + (angle - 60) / 6;
       }
 
       if (angle <= 120) {
-        return 114 + (angle - 90) / 4.8;
+        return 115 + (angle - 90) / 6;
       }
 
       return angle;
@@ -962,67 +1465,6 @@
 
       guideLines.append(fragment);
     }
-
-    function syncScrollToAnchoredDate(anchorDate) {
-      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-      const anchoredProgress = clamp(dateToDisplayProgressUnclamped(anchorDate), 0, 1);
-      const targetTop = Math.max(0, anchoredProgress * maxScroll);
-      window.scrollTo(0, targetTop);
-      document.documentElement.scrollTop = targetTop;
-      document.body.scrollTop = targetTop;
-    }
-
-    function finalizePerspectiveAnchor() {
-      const anchor = perspectiveAnchorDate;
-      if (!anchor) {
-        document.documentElement.style.scrollBehavior = "";
-        return;
-      }
-      syncScrollToAnchoredDate(anchor);
-      if (perspectiveFinalizeScheduled) {
-        return;
-      }
-      perspectiveFinalizeScheduled = true;
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-          perspectiveFinalizeScheduled = false;
-          perspectiveAnchorDate = null;
-          document.documentElement.style.scrollBehavior = "";
-          updateTimeline();
-        });
-      });
-    }
-
-    function initializePerspectiveDepthControl() {
-      if (!perspectiveDepthInput) {
-        return;
-      }
-      perspectiveDepthInput.value = perspectiveDepth.toFixed(2);
-      updatePerspectiveDepthLabel();
-      updateTimelineLineProfile();
-      applyScrollableSpanForTimeFactor();
-      perspectiveDepthInput.addEventListener("pointerdown", () => {
-        perspectiveAnchorDate = progressToDate(getScrollProgress());
-        document.documentElement.style.scrollBehavior = "auto";
-      });
-      perspectiveDepthInput.addEventListener("pointerup", finalizePerspectiveAnchor);
-      perspectiveDepthInput.addEventListener("pointercancel", finalizePerspectiveAnchor);
-      perspectiveDepthInput.addEventListener("change", finalizePerspectiveAnchor);
-      perspectiveDepthInput.addEventListener("input", () => {
-        const fixedCenterDate = perspectiveAnchorDate || progressToDate(getScrollProgress());
-        perspectiveDepth = clamp(Number(perspectiveDepthInput.value), 1, 3);
-        timelineSettings.perspectiveDepth = perspectiveDepth;
-        window.TiltingLineStore.save(appData);
-        updatePerspectiveDepthLabel();
-        updateTimelineLineProfile();
-        applyScrollableSpanForTimeFactor();
-        renderYearMarkers();
-        renderEvents();
-        syncScrollToAnchoredDate(fixedCenterDate);
-        window.requestAnimationFrame(updateTimeline);
-      });
-    }
-
     function guidePathFor(side, lineNumber) {
       const xAnchor = 500;
       const halfAnchor = guideHalfThickness(xAnchor);
@@ -1050,7 +1492,7 @@
       return `M ${coordinates.join(" L ")}`;
     }
 
-    function renderGuideLines(angleDeg = 30) {
+    function renderGuideLines(angleDeg = Number.parseFloat((getComputedStyle(document.documentElement).getPropertyValue("--line-angle") || "30deg").replace("deg", "")) || 30) {
       const fragment = document.createDocumentFragment();
       guideLines.innerHTML = "";
 
@@ -1077,6 +1519,7 @@
       }
 
       guideLines.append(fragment);
+      renderPersonCards(angleDeg);
     }
 
     function sortNodes() {
@@ -1128,45 +1571,21 @@
 
     function getScrollProgress() {
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      return maxScroll > 0 ? clamp(window.scrollY / maxScroll, 0, 1) : 0;
-    }
-
-    function applyTiltScene(angleDeg, multiplier) {
-      document.documentElement.style.setProperty("--line-angle", `${angleDeg}deg`);
-      const profile = updateTimelineLineProfile();
-      updateZZDirection(multiplier, angleDeg, profile);
-      renderGuideLines(angleDeg);
-      renderPersonCards(angleDeg);
-    }
-
-    function tickTiltAnimation() {
-      tiltRaf = 0;
-      const delta = targetAngleDeg - renderedAngleDeg;
-      renderedAngleDeg += delta * 0.22;
-      if (Math.abs(delta) < 0.02) {
-        renderedAngleDeg = targetAngleDeg;
-      }
-      applyTiltScene(renderedAngleDeg, latestMultiplier);
-      if (Math.abs(targetAngleDeg - renderedAngleDeg) >= 0.02) {
-        tiltRaf = window.requestAnimationFrame(tickTiltAnimation);
-      }
+      return maxScroll > 0 ? clamp((window.scrollY / maxScroll) * 5, 0, 1) : 0;
     }
 
     function updateTimeline() {
       const progress = getScrollProgress();
-      const currentDate =
-        perspectiveAnchorDate != null ? perspectiveAnchorDate : progressToDate(progress);
+      const currentDate = progressToDate(progress);
       const multiplier = interpolateMultiplier(currentDate);
       const rawAngle = multiplierToAngle(multiplier);
       const angle = mapDisplayedAngle(rawAngle);
-      const stateProgress = clamp(dateToBaseProgressUnclamped(currentDate), 0, 1);
 
-      targetAngleDeg = angle;
-      latestMultiplier = multiplier;
-      document.documentElement.style.setProperty("--progress-height", `${stateProgress * 100}%`);
-      if (!tiltRaf) {
-        tiltRaf = window.requestAnimationFrame(tickTiltAnimation);
-      }
+      document.documentElement.style.setProperty("--line-angle", `${angle}deg`);
+      document.documentElement.style.setProperty("--progress-height", `${progress * 100}%`);
+      const profile = updateTimelineLineProfile();
+      updateZZDirection(multiplier, angle, profile);
+      renderGuideLines(angle);
       dateValue.textContent = monthFormatter.format(currentDate);
       dateAngle.textContent = `${angle.toFixed(1)} deg, ${multiplier >= 0 ? "+" : ""}${multiplier.toFixed(2)}`;
     }
@@ -1255,19 +1674,14 @@
     }
 
     function renderYearMarkers() {
-      stage.querySelectorAll(".year-marker").forEach((el) => el.remove());
       const fragment = document.createDocumentFragment();
       const startYear = startDate.getFullYear();
       const endYear = endDate.getFullYear();
 
       for (let year = startYear; year <= endYear; year += 10) {
-        const progress = dateToDisplayProgressUnclamped(new Date(year, 0, 1));
-        if (progress < 0 || progress > 1) {
-          continue;
-        }
         const marker = document.createElement("div");
         marker.className = "year-marker";
-        marker.style.top = `${progress * 100}%`;
+        marker.style.top = `${dateToProgress(new Date(year, 0, 1)) * 100}%`;
         marker.innerHTML = `<span>${year}</span>`;
         fragment.append(marker);
       }
@@ -1275,31 +1689,235 @@
       stage.append(fragment);
     }
 
+    // ── Background GIF layer config (must be before renderEvents so cards can
+    //    extend their connector lines toward a matched gif) ───────────────────
+    const BG_GIFS = [
+      { src: "FDR.gif",       date: "1933-01", side: "right" },
+      { src: "1940.gif",      date: "1940-01", side: "right" },
+      { src: "Churchill.gif", date: "1945-05", eventMatch: "End of World War II in Europe", side: "left" }
+    ];
+
     function renderEvents() {
-      stage.querySelectorAll(".event").forEach((el) => el.remove());
       const fragment = document.createDocumentFragment();
 
-      const visibleEntries = timelineEntries.filter((event) => String(event.type || "").toLowerCase() !== "character");
-
-      let visibleIndex = 0;
-      visibleEntries.forEach((event) => {
-        const progress = dateToDisplayProgressUnclamped(parseMonth(event.date));
-        if (progress < 0 || progress > 1) {
-          return;
-        }
+      timelineEntries.forEach((event, index) => {
+        const side = index % 2 === 0 ? "left" : "right";
+        const linkedGif = BG_GIFS.find((g) =>
+          g.eventMatch && event.title.toLowerCase().includes(g.eventMatch.toLowerCase())
+        );
+        const gifClass = linkedGif
+          ? (side === "left" ? " has-gif-right" : " has-gif-left")
+          : "";
         const element = document.createElement("article");
-        element.className = `event ${visibleIndex % 2 === 0 ? "left" : "right"}`;
-        element.style.top = `${progress * 100}%`;
+        element.className = `event ${side}${gifClass}`;
+        element.style.top = `${dateToProgress(parseMonth(event.date)) * 100}%`;
         element.innerHTML = `
           <time>${monthFormatter.format(parseMonth(event.date))}</time>
           <strong>${event.title} (${event.type})</strong>
           <p>${event.body}</p>
         `;
         fragment.append(element);
-        visibleIndex += 1;
       });
 
       stage.append(fragment);
+    }
+
+    // ── Background GIF render + scroll fade ──────────────────────────────────
+    function resolveBgGifPositions() {
+      const stageEl = document.querySelector("#stage");
+      const stageHeight = stageEl ? stageEl.offsetHeight : document.documentElement.scrollHeight;
+      BG_GIFS.forEach((gif) => {
+        if (gif.eventMatch) {
+          const entry = timelineEntries.find((e) =>
+            e.title.toLowerCase().includes(gif.eventMatch.toLowerCase())
+          );
+          gif._y = entry
+            ? dateToProgress(parseMonth(entry.date)) * stageHeight
+            : (gif.date ? dateToProgress(parseMonth(gif.date)) * stageHeight : null);
+        } else if (gif.date) {
+          gif._y = dateToProgress(parseMonth(gif.date)) * stageHeight;
+        } else {
+          gif._y = null;
+        }
+        if (gif._el && gif._y != null) gif._el.style.top = gif._y + "px";
+      });
+    }
+
+    function renderBgGifs() {
+      resolveBgGifPositions();
+      const stageEl = document.querySelector("#stage");
+      BG_GIFS.forEach((gif) => {
+        const el = document.createElement("div");
+        el.className = `bg-gif ${gif.side || "right"}`;
+        el.style.backgroundImage = `url(${gif.src})`;
+        if (gif._y != null) el.style.top = gif._y + "px";
+        stageEl.appendChild(el);
+        gif._el = el;
+      });
+    }
+
+    function updateBgGifs() {
+      const vh = window.innerHeight;
+      const center = window.scrollY + vh / 2;
+      BG_GIFS.forEach((gif) => {
+        if (!gif._el || gif._y == null) return;
+        const dist = Math.abs(gif._y - center);
+        gif._el.style.opacity = Math.max(0, 1 - dist / (vh / 2));
+      });
+      requestAnimationFrame(updateBgGifs);
+    }
+
+    // ── Event marbles rolling on the tilting line ───────────────────────────
+    // Each orb rides the line itself: its position along the line is driven by
+    // (orbDate − currentDate), so as you scroll forward in time, orbs roll
+    // from the future end of the line through centre and off the past end.
+    // Each orb is assigned a political lean ("left" or "right") which puts it
+    // in the corresponding group of guide lines, and a track (1..6) for which
+    // line within that group it rolls on. Generic placeholder lean assignment
+    // for the prototype — to be replaced with the Iranian content's mapping.
+    const BUBBLES = [
+      { date: "1932-03", title: "Lindbergh kidnapping", wiki: "https://en.wikipedia.org/wiki/Lindbergh_kidnapping",            depth: 0.2, lean: "right", track: 4 },
+      { date: "1936-08", title: "Berlin Olympics",      wiki: "https://en.wikipedia.org/wiki/1936_Summer_Olympics",             depth: 0.5, lean: "right", track: 2 },
+      { date: "1939-09", title: "Invasion of Poland",   wiki: "https://en.wikipedia.org/wiki/Invasion_of_Poland",               depth: 0.7, lean: "right", track: 5 },
+      { date: "1947-07", title: "Roswell incident",     wiki: "https://en.wikipedia.org/wiki/Roswell_incident",                 depth: 0.3, lean: "left",  track: 3 },
+      { date: "1953-04", title: "DNA structure",        wiki: "https://en.wikipedia.org/wiki/DNA",                              depth: 0.6, lean: "left",  track: 5 },
+      { date: "1957-10", title: "Sputnik 1",            wiki: "https://en.wikipedia.org/wiki/Sputnik_1",                        depth: 0.4, lean: "left",  track: 4 },
+      { date: "1963-11", title: "JFK assassination",    wiki: "https://en.wikipedia.org/wiki/Assassination_of_John_F._Kennedy", depth: 0.2, lean: "left",  track: 2 },
+      { date: "1969-07", title: "Apollo 11",            wiki: "https://en.wikipedia.org/wiki/Apollo_11",                        depth: 0.5, lean: "right", track: 3 },
+      { date: "1977-05", title: "Star Wars",            wiki: "https://en.wikipedia.org/wiki/Star_Wars_(film)",                 depth: 0.7, lean: "left",  track: 6 },
+      { date: "1981-08", title: "MTV launches",         wiki: "https://en.wikipedia.org/wiki/MTV",                              depth: 0.3, lean: "left",  track: 4 },
+      { date: "1989-03", title: "World Wide Web",       wiki: "https://en.wikipedia.org/wiki/World_Wide_Web",                   depth: 0.6, lean: "left",  track: 2 },
+      { date: "1997-07", title: "Hong Kong handover",   wiki: "https://en.wikipedia.org/wiki/Handover_of_Hong_Kong",            depth: 0.4, lean: "right", track: 5 },
+      { date: "2001-09", title: "9/11",                 wiki: "https://en.wikipedia.org/wiki/September_11_attacks",             depth: 0.2, lean: "right", track: 3 },
+      { date: "2007-06", title: "iPhone introduced",    wiki: "https://en.wikipedia.org/wiki/IPhone_(1st_generation)",          depth: 0.5, lean: "left",  track: 4 },
+      { date: "2015-12", title: "Paris Agreement",      wiki: "https://en.wikipedia.org/wiki/Paris_Agreement",                  depth: 0.7, lean: "left",  track: 6 },
+      { date: "2020-03", title: "COVID-19 pandemic",    wiki: "https://en.wikipedia.org/wiki/COVID-19_pandemic",                depth: 0.3, lean: "right", track: 2 }
+    ];
+
+    const yearOnlyFormatter = new Intl.DateTimeFormat("en", { year: "numeric" });
+    const PX_PER_MONTH = 8;
+
+    function resolveBubblePositions() {
+      // Anchor Y isn't needed for rolling orbs — they're driven by time delta,
+      // not stage-relative Y. Kept as a no-op so the resize wiring stays valid.
+    }
+
+    function renderBubbles() {
+      const layer = document.querySelector("#bubble-layer");
+      if (!layer) return;
+      BUBBLES.forEach((b) => {
+        b._dateMonths = monthToNumber(b.date);
+        b._baseScale = 1.05 - b.depth * 0.2;
+        const el = document.createElement("a");
+        el.className = `event-bubble bubble-${b.lean}`;
+        el.href = b.wiki;
+        el.target = "_blank";
+        el.rel = "noopener noreferrer";
+        el.setAttribute("aria-label", `${b.title} (opens Wikipedia in new tab)`);
+        el.innerHTML = `
+          <span class="bubble-label" aria-hidden="true">
+            <time>${yearOnlyFormatter.format(parseMonth(b.date))}</time>
+            ${b.title}
+          </span>
+        `;
+        el.style.setProperty("--scale", (b._baseScale * 0.65).toFixed(3));
+        el.style.setProperty("--glow", "0");
+        el.style.setProperty("--line-offset", "0px");
+        el.style.setProperty("--perp-offset", "0px");
+        // Stagger pulse phase across orbs so they don't breathe in lockstep.
+        el.style.animationDelay = `-${(b._dateMonths % 19) * 0.21}s`;
+        b._el = el;
+        layer.append(el);
+      });
+    }
+
+    // Perpendicular offset onto the guide-line fan, mirroring guidePathFor()
+    // so the orb traces the exact path of its assigned guide line.
+    function computeGuideOffset(lineOffset, track, lean) {
+      const lineWrapWidth = 4.2 * Math.max(window.innerWidth, window.innerHeight);
+      const svgX = 500 + (lineOffset / lineWrapWidth) * 1000;
+      const halfThickness = 5.6 + (64.4 * svgX) / 1000;
+      const scaledGap = guideLineCentreGap * (halfThickness / 27.3);
+      const offsetAtX = halfThickness + track * scaledGap;
+      const side = lean === "left" ? -1 : 1;
+      return side * offsetAtX;
+    }
+
+    function updateBubbles() {
+      const progress = getScrollProgress();
+      const currentDate = progressToDate(progress);
+      const currentMonths = currentDate.getFullYear() * 12 + currentDate.getMonth();
+      const stickyZone = window.innerWidth * 0.22;
+      const maxVisible = window.innerWidth * 0.55;
+
+      BUBBLES.forEach((b) => {
+        if (!b._el) return;
+
+        // Time delta → distance along the line (future = right, past = left).
+        const deltaMonths = b._dateMonths - currentMonths;
+        const baseOffset = deltaMonths * PX_PER_MONTH;
+
+        // Sticky compression near centre.
+        const sticky = Math.max(0, 1 - Math.abs(baseOffset) / stickyZone);
+        const stickySmooth = sticky * sticky;
+        const finalOffset = baseOffset * (1 - 0.55 * stickySmooth);
+
+        // Perpendicular offset puts the orb onto its assigned guide line.
+        const perpOffset = computeGuideOffset(finalOffset, b.track, b.lean);
+
+        // Opacity: visible only within the window around centre.
+        const opacity = Math.max(0, 1 - Math.abs(finalOffset) / maxVisible);
+        const glow = Math.max(0, Math.min(1, Math.pow(opacity, 0.55)));
+        const sizeBoost = 0.65 + opacity * 0.5;
+        const finalScale = b._baseScale * sizeBoost;
+
+        b._el.style.setProperty("--line-offset", `${finalOffset.toFixed(1)}px`);
+        b._el.style.setProperty("--perp-offset", `${perpOffset.toFixed(1)}px`);
+        b._el.style.setProperty("--glow", glow.toFixed(3));
+        b._el.style.setProperty("--scale", finalScale.toFixed(3));
+        b._el.style.opacity = opacity.toFixed(3);
+      });
+      requestAnimationFrame(updateBubbles);
+    }
+
+    function partyActivityRange(party) {
+      let start = monthToNumber(party.established);
+      let end = party.dissolved ? monthToNumber(party.dissolved) : monthToNumber(toMonthValue(endDate));
+      (party.positions || []).forEach((row) => {
+        start = Math.min(start, monthToNumber(row.start));
+        end = Math.max(end, monthToNumber(row.end));
+      });
+      return { start, end };
+    }
+
+    function renderActorsLayer() {
+      if (!actorsLayer) {
+        return;
+      }
+      actorsLayer.innerHTML = "";
+
+      parties.forEach((party) => {
+        const range = partyActivityRange(party);
+        const startMonth = numberToMonth(range.start);
+        const endMonth = numberToMonth(range.end);
+
+        const topProgress = dateToProgress(parseMonth(startMonth));
+        const bottomProgress = dateToProgress(parseMonth(endMonth));
+        const height = Math.max(0.15, (bottomProgress - topProgress) * 100);
+
+        const band = document.createElement("div");
+        band.className = "party-band";
+        band.style.top = `${topProgress * 100}%`;
+        band.style.height = `${height}%`;
+        band.style.width = "120px";
+        band.style.transform = "translate(-50%, 0) rotate(var(--line-angle))";
+        band.title = party.name;
+        const partyLabel = document.createElement("span");
+        partyLabel.className = "bar-label";
+        partyLabel.textContent = party.name;
+        band.append(partyLabel);
+        actorsLayer.append(band);
+      });
     }
 
     nodeSelect.addEventListener("change", () => {
@@ -1321,25 +1939,710 @@
     removeNodeButton.addEventListener("click", removeSelectedNode);
     window.addEventListener("scroll", updateTimeline, { passive: true });
 
-    initializePerspectiveDepthControl();
     renderGuideLines();
     renderYearMarkers();
     renderEvents();
+    renderActorsLayer();
     renderNodeControls();
+    renderBgGifs();
+    updateBgGifs();
+    renderBubbles();
+    updateBubbles();
     updateTimeline();
 
     let resizeActorsTimer = 0;
     window.addEventListener("resize", () => {
       window.clearTimeout(resizeActorsTimer);
       resizeActorsTimer = window.setTimeout(() => {
-        applyScrollableSpanForTimeFactor();
         renderGuideLines();
+        renderActorsLayer();
+        resolveBgGifPositions();
+        resolveBubblePositions();
         updateTimeline();
       }, 120);
     });
   </script>
+
+  <!-- ═══════════════════════════════════════════════
+       DATA WIDGET SYSTEM
+       Registry-driven, draggable, snap-to-edge.
+       Placeholder series; to be swapped for
+       Iranian-context data in a later phase.
+  ════════════════════════════════════════════════ -->
+  <script>
+  (() => {
+    const STORAGE_KEY = "tilting-line-widgets-v1";
+    const SNAP_LANES = ["left", "right", "bottom"];
+
+    const WIDGETS = [
+      {
+        id: "oil",
+        title: "Crude oil",
+        subtitle: "USD / barrel",
+        variant: "line",
+        format: (v) => `$${v.toFixed(2)}`,
+        series: [
+          [1930, 1.19], [1931, 0.65], [1932, 0.87], [1933, 0.67], [1934, 1.00],
+          [1935, 0.97], [1936, 1.09], [1937, 1.18], [1938, 1.13], [1939, 1.02],
+          [1940, 1.02], [1941, 1.14], [1942, 1.19], [1943, 1.20], [1944, 1.21],
+          [1945, 1.05], [1946, 1.41], [1947, 1.93], [1948, 2.60], [1949, 2.54],
+          [1950, 2.51], [1951, 2.53], [1952, 2.53], [1953, 2.68], [1954, 2.78],
+          [1955, 2.77], [1956, 2.79], [1957, 3.09], [1958, 3.01], [1959, 2.90],
+          [1960, 2.88], [1961, 2.89], [1962, 2.90], [1963, 2.89], [1964, 2.88],
+          [1965, 2.86], [1966, 2.88], [1967, 2.92], [1968, 2.94], [1969, 3.09],
+          [1970, 3.18], [1971, 3.39], [1972, 3.39], [1973, 3.89], [1974, 6.87],
+          [1975, 7.67], [1976, 8.19], [1977, 8.57], [1978, 9.00], [1979, 12.64],
+          [1980, 21.59], [1981, 31.77], [1982, 28.52], [1983, 26.19], [1984, 25.88],
+          [1985, 24.09], [1986, 12.51], [1987, 15.40], [1988, 12.58], [1989, 15.86],
+          [1990, 20.03], [1991, 16.54], [1992, 15.99], [1993, 14.25], [1994, 13.19],
+          [1995, 14.62], [1996, 18.46], [1997, 17.23], [1998, 11.91], [1999, 16.56],
+          [2000, 27.39], [2001, 23.00], [2002, 22.81], [2003, 27.69], [2004, 37.66],
+          [2005, 50.04], [2006, 58.30], [2007, 64.20], [2008, 91.48], [2009, 53.48],
+          [2010, 71.21], [2011, 87.04], [2012, 86.46], [2013, 91.17], [2014, 85.60],
+          [2015, 41.85], [2016, 39.68], [2017, 48.66], [2018, 56.99], [2019, 51.32],
+          [2020, 30.00], [2021, 61.40], [2022, 84.84], [2023, 76.05], [2024, 76.40],
+          [2025, 72.00]
+        ]
+      },
+      {
+        id: "gdp",
+        title: "GDP / capita",
+        subtitle: "USD nominal",
+        variant: "area",
+        format: (v) => `$${Math.round(v).toLocaleString()}`,
+        series: [
+          [1930, 727], [1931, 645], [1932, 470], [1933, 449], [1934, 533],
+          [1935, 614], [1936, 716], [1937, 791], [1938, 720], [1939, 798],
+          [1940, 871], [1941, 1054], [1942, 1316], [1943, 1547], [1944, 1670],
+          [1945, 1665], [1946, 1499], [1947, 1620], [1948, 1755], [1949, 1746],
+          [1950, 1934], [1951, 2113], [1952, 2206], [1953, 2298], [1954, 2289],
+          [1955, 2402], [1956, 2494], [1957, 2570], [1958, 2604], [1959, 2756],
+          [1960, 2934], [1961, 3023], [1962, 3209], [1963, 3358], [1964, 3552],
+          [1965, 3700], [1966, 3997], [1967, 4198], [1968, 4538], [1969, 4853],
+          [1970, 5066], [1971, 5454], [1972, 5938], [1973, 6557], [1974, 7099],
+          [1975, 7651], [1976, 8472], [1977, 9341], [1978, 10485], [1979, 11586],
+          [1980, 12530], [1981, 13948], [1982, 14401], [1983, 15523], [1984, 17139],
+          [1985, 18269], [1986, 19115], [1987, 20100], [1988, 21483], [1989, 22922],
+          [1990, 23889], [1991, 24342], [1992, 25419], [1993, 26387], [1994, 27695],
+          [1995, 28691], [1996, 29968], [1997, 31459], [1998, 32854], [1999, 34514],
+          [2000, 36330], [2001, 37134], [2002, 38023], [2003, 39496], [2004, 41713],
+          [2005, 44115], [2006, 46299], [2007, 47976], [2008, 48383], [2009, 47100],
+          [2010, 48650], [2011, 50066], [2012, 51784], [2013, 53291], [2014, 55124],
+          [2015, 56802], [2016, 57928], [2017, 59885], [2018, 62823], [2019, 65095],
+          [2020, 63531], [2021, 70219], [2022, 76330], [2023, 81632], [2024, 85812],
+          [2025, 89000]
+        ]
+      },
+      {
+        id: "inflation",
+        title: "Inflation",
+        subtitle: "CPI annual %",
+        variant: "bars",
+        format: (v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`,
+        series: [
+          [1930, -2.3], [1931, -9.0], [1932, -9.9], [1933, -5.1], [1934, 3.1],
+          [1935, 2.2], [1936, 1.5], [1937, 3.6], [1938, -2.1], [1939, -1.4],
+          [1940, 0.7], [1941, 5.0], [1942, 10.9], [1943, 6.1], [1944, 1.7],
+          [1945, 2.3], [1946, 8.3], [1947, 14.4], [1948, 8.1], [1949, -1.2],
+          [1950, 1.3], [1951, 7.9], [1952, 1.9], [1953, 0.8], [1954, 0.7],
+          [1955, -0.4], [1956, 1.5], [1957, 3.3], [1958, 2.8], [1959, 0.7],
+          [1960, 1.7], [1961, 1.0], [1962, 1.0], [1963, 1.3], [1964, 1.3],
+          [1965, 1.6], [1966, 2.9], [1967, 3.1], [1968, 4.2], [1969, 5.5],
+          [1970, 5.7], [1971, 4.4], [1972, 3.2], [1973, 6.2], [1974, 11.0],
+          [1975, 9.1], [1976, 5.8], [1977, 6.5], [1978, 7.6], [1979, 11.3],
+          [1980, 13.5], [1981, 10.3], [1982, 6.1], [1983, 3.2], [1984, 4.3],
+          [1985, 3.6], [1986, 1.9], [1987, 3.6], [1988, 4.1], [1989, 4.8],
+          [1990, 5.4], [1991, 4.2], [1992, 3.0], [1993, 3.0], [1994, 2.6],
+          [1995, 2.8], [1996, 2.9], [1997, 2.3], [1998, 1.6], [1999, 2.2],
+          [2000, 3.4], [2001, 2.8], [2002, 1.6], [2003, 2.3], [2004, 2.7],
+          [2005, 3.4], [2006, 3.2], [2007, 2.9], [2008, 3.8], [2009, -0.4],
+          [2010, 1.6], [2011, 3.2], [2012, 2.1], [2013, 1.5], [2014, 1.6],
+          [2015, 0.1], [2016, 1.3], [2017, 2.1], [2018, 2.4], [2019, 1.8],
+          [2020, 1.2], [2021, 4.7], [2022, 8.0], [2023, 4.1], [2024, 2.9],
+          [2025, 2.6]
+        ]
+      },
+      {
+        id: "stocks",
+        title: "Stock index",
+        subtitle: "S&P proxy",
+        variant: "line",
+        format: (v) => Math.round(v).toLocaleString(),
+        series: [
+          [1930, 21], [1931, 13], [1932, 7], [1933, 10], [1934, 9],
+          [1935, 13], [1936, 17], [1937, 11], [1938, 13], [1939, 12],
+          [1940, 11], [1941, 9], [1942, 9], [1943, 12], [1944, 13],
+          [1945, 17], [1946, 15], [1947, 15], [1948, 15], [1949, 17],
+          [1950, 20], [1951, 24], [1952, 27], [1953, 25], [1954, 36],
+          [1955, 45], [1956, 47], [1957, 40], [1958, 55], [1959, 60],
+          [1960, 58], [1961, 72], [1962, 63], [1963, 75], [1964, 85],
+          [1965, 92], [1966, 80], [1967, 96], [1968, 104], [1969, 92],
+          [1970, 92], [1971, 102], [1972, 118], [1973, 97], [1974, 69],
+          [1975, 90], [1976, 107], [1977, 95], [1978, 96], [1979, 108],
+          [1980, 136], [1981, 123], [1982, 141], [1983, 165], [1984, 167],
+          [1985, 211], [1986, 242], [1987, 247], [1988, 277], [1989, 353],
+          [1990, 330], [1991, 417], [1992, 436], [1993, 466], [1994, 459],
+          [1995, 616], [1996, 740], [1997, 970], [1998, 1229], [1999, 1469],
+          [2000, 1320], [2001, 1148], [2002, 880], [2003, 1112], [2004, 1212],
+          [2005, 1248], [2006, 1418], [2007, 1468], [2008, 903], [2009, 1115],
+          [2010, 1258], [2011, 1258], [2012, 1426], [2013, 1848], [2014, 2059],
+          [2015, 2044], [2016, 2239], [2017, 2674], [2018, 2507], [2019, 3231],
+          [2020, 3756], [2021, 4766], [2022, 3840], [2023, 4770], [2024, 5882],
+          [2025, 6100]
+        ]
+      }
+    ];
+
+    const VIEW_W = 300, VIEW_H = 70, PAD_TOP = 6, PAD_BOT = 6;
+    const LANE_MARGIN = 24;
+    const WIDGET_GAP = 12;
+    const AUDIO_BTN_CLEAR = 88; // leave room for the bottom-left audio control
+
+    const widgetRoot = document.querySelector("#widget-root");
+    const menuList = document.querySelector("#widget-menu-list");
+
+    // ─── State ──────────────────────────────────────────────────────────────
+    function defaultState() {
+      return {
+        open: { oil: true, gdp: true, inflation: false, stocks: false },
+        lanes: { left: [], right: ["oil", "gdp"], bottom: [] }
+      };
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return defaultState();
+        const parsed = JSON.parse(raw);
+        const def = defaultState();
+        const validIds = new Set(WIDGETS.map((w) => w.id));
+        const open = {};
+        WIDGETS.forEach((w) => {
+          open[w.id] = typeof parsed.open?.[w.id] === "boolean" ? parsed.open[w.id] : def.open[w.id];
+        });
+        const lanes = { left: [], right: [], bottom: [] };
+        SNAP_LANES.forEach((l) => {
+          const src = Array.isArray(parsed.lanes?.[l]) ? parsed.lanes[l] : [];
+          lanes[l] = src.filter((id) => validIds.has(id));
+        });
+        // Reconcile: every open widget lives in exactly one lane; closed widgets in none.
+        const seen = new Set();
+        SNAP_LANES.forEach((l) => {
+          lanes[l] = lanes[l].filter((id) => {
+            if (seen.has(id) || !open[id]) return false;
+            seen.add(id);
+            return true;
+          });
+        });
+        WIDGETS.forEach((w) => {
+          if (open[w.id] && !seen.has(w.id)) {
+            lanes.right.push(w.id);
+            seen.add(w.id);
+          }
+        });
+        return { open, lanes };
+      } catch {
+        return defaultState();
+      }
+    }
+
+    function saveState() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+    }
+
+    const state = loadState();
+
+    // ─── Scroll → date (mirrors main timeline mapping) ─────────────────────
+    const store = window.TiltingLineStore.load();
+    const [sY, sM] = store.timeline.startDate.split("-").map(Number);
+    const [eY, eM] = store.timeline.endDate.split("-").map(Number);
+    const startTime = new Date(sY, sM - 1, 1).getTime();
+    const endTime = new Date(eY, eM - 1, 1).getTime();
+    const dateFormatter = new Intl.DateTimeFormat("en", { month: "short", year: "numeric" });
+
+    function currentDate() {
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const raw = maxScroll > 0 ? (window.scrollY / maxScroll) * 5 : 0;
+      const progress = Math.min(Math.max(raw, 0), 1);
+      return new Date(startTime + progress * (endTime - startTime));
+    }
+
+    // ─── Scale per widget ──────────────────────────────────────────────────
+    function makeScale(def) {
+      const series = def.series;
+      const minYear = series[0][0];
+      const maxYear = series[series.length - 1][0];
+      const yearRange = maxYear - minYear || 1;
+      let minVal = Math.min(...series.map((d) => d[1]));
+      let maxVal = Math.max(...series.map((d) => d[1]));
+      if (def.variant === "bars") {
+        minVal = Math.min(minVal, 0);
+        maxVal = Math.max(maxVal, 0);
+      }
+      const valRange = (maxVal - minVal) || 1;
+      const innerH = VIEW_H - PAD_TOP - PAD_BOT;
+
+      return {
+        minYear, maxYear,
+        xFor(yearFloat) {
+          const c = Math.min(Math.max(yearFloat, minYear), maxYear);
+          return ((c - minYear) / yearRange) * VIEW_W;
+        },
+        yFor(val) {
+          return PAD_TOP + (1 - (val - minVal) / valRange) * innerH;
+        },
+        valAt(yearFloat) {
+          if (yearFloat <= minYear) return series[0][1];
+          if (yearFloat >= maxYear) return series[series.length - 1][1];
+          const idx = Math.floor(yearFloat - minYear);
+          const t = yearFloat - minYear - idx;
+          return series[idx][1] + t * (series[idx + 1][1] - series[idx][1]);
+        }
+      };
+    }
+
+    // ─── Widget instance ───────────────────────────────────────────────────
+    const instances = new Map(); // id → { el, update }
+
+    function buildWidget(def) {
+      const el = document.createElement("aside");
+      el.className = "widget";
+      el.dataset.widgetId = def.id;
+      el.setAttribute("aria-label", `${def.title} widget`);
+      el.innerHTML = `
+        <header class="widget-header" data-drag-handle>
+          <div class="widget-labels">
+            <span class="widget-eyebrow">${def.title}</span>
+            <span class="widget-title">${def.subtitle}</span>
+          </div>
+          <button class="widget-close" aria-label="Close ${def.title}" type="button">&times;</button>
+        </header>
+        <svg class="widget-spark" viewBox="0 0 ${VIEW_W} ${VIEW_H}" preserveAspectRatio="none" aria-hidden="true">
+          <line class="spark-baseline" x1="0" x2="${VIEW_W}" y1="0" y2="0" style="display:none"></line>
+          <path class="spark-fill"></path>
+          <g class="spark-bars"></g>
+          <path class="spark-line"></path>
+          <line class="spark-cursor" x1="0" y1="0" x2="0" y2="${VIEW_H}"></line>
+          <circle class="spark-dot" cx="0" cy="0" r="3"></circle>
+        </svg>
+        <footer class="widget-readout">
+          <span class="widget-price">—</span>
+          <span class="widget-date">—</span>
+        </footer>
+      `;
+
+      const scale = makeScale(def);
+      const sparkFill = el.querySelector(".spark-fill");
+      const sparkLine = el.querySelector(".spark-line");
+      const sparkBars = el.querySelector(".spark-bars");
+      const sparkBaseline = el.querySelector(".spark-baseline");
+      const sparkCursor = el.querySelector(".spark-cursor");
+      const sparkDot = el.querySelector(".spark-dot");
+      const priceEl = el.querySelector(".widget-price");
+      const dateEl = el.querySelector(".widget-date");
+
+      const pts = def.series.map(([y, v]) => `${scale.xFor(y).toFixed(2)},${scale.yFor(v).toFixed(2)}`);
+      const lineD = "M" + pts.join(" L");
+
+      if (def.variant === "line") {
+        sparkLine.setAttribute("d", lineD);
+      } else if (def.variant === "area") {
+        sparkLine.setAttribute("d", lineD);
+        sparkFill.setAttribute("d", `${lineD} L${VIEW_W},${VIEW_H} L0,${VIEW_H} Z`);
+      } else if (def.variant === "bars") {
+        const zeroY = scale.yFor(0);
+        sparkBaseline.setAttribute("y1", zeroY);
+        sparkBaseline.setAttribute("y2", zeroY);
+        sparkBaseline.style.display = "";
+        const barW = VIEW_W / def.series.length;
+        def.series.forEach(([y, v], i) => {
+          const x = i * barW;
+          const yPos = scale.yFor(v);
+          const h = Math.abs(yPos - zeroY);
+          const top = Math.min(yPos, zeroY);
+          const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          rect.setAttribute("x", x.toFixed(2));
+          rect.setAttribute("y", top.toFixed(2));
+          rect.setAttribute("width", Math.max(barW - 0.4, 0.4).toFixed(2));
+          rect.setAttribute("height", Math.max(h, 0.6).toFixed(2));
+          rect.setAttribute("class", v >= 0 ? "spark-bar-pos" : "spark-bar-neg");
+          sparkBars.append(rect);
+        });
+      }
+
+      function update(date) {
+        const yf = date.getFullYear() + date.getMonth() / 12;
+        const x = scale.xFor(yf);
+        const val = scale.valAt(yf);
+        const y = scale.yFor(val);
+        sparkCursor.setAttribute("x1", x);
+        sparkCursor.setAttribute("x2", x);
+        sparkDot.setAttribute("cx", x);
+        sparkDot.setAttribute("cy", y);
+        priceEl.textContent = def.format(val);
+        dateEl.textContent = dateFormatter.format(date);
+      }
+
+      el.querySelector(".widget-close").addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeWidget(def.id);
+      });
+
+      wireDrag(el, def.id);
+      return { el, update };
+    }
+
+    // ─── Layout ────────────────────────────────────────────────────────────
+    function applyLayout() {
+      SNAP_LANES.forEach((lane) => {
+        let cursor = lane === "bottom" ? AUDIO_BTN_CLEAR : LANE_MARGIN;
+        state.lanes[lane].forEach((id, i) => {
+          const inst = instances.get(id);
+          if (!inst) return;
+          const el = inst.el;
+          if (el.classList.contains("dragging")) return;
+          positionWidget(el, lane, i, cursor);
+          // measure to advance cursor (after first paint we have offsetWidth/Height)
+          const w = el.offsetWidth || 300;
+          const h = el.offsetHeight || 140;
+          cursor += (lane === "bottom" ? w : h) + WIDGET_GAP;
+        });
+      });
+    }
+
+    function positionWidget(el, lane, indexInLane, cursorPx) {
+      el.style.top = "";
+      el.style.left = "";
+      el.style.right = "";
+      el.style.bottom = "";
+      if (lane === "left") {
+        el.style.left = LANE_MARGIN + "px";
+        el.style.bottom = cursorPx + "px";
+      } else if (lane === "right") {
+        el.style.right = LANE_MARGIN + "px";
+        el.style.bottom = cursorPx + "px";
+      } else if (lane === "bottom") {
+        el.style.bottom = LANE_MARGIN + "px";
+        el.style.left = cursorPx + "px";
+      }
+    }
+
+    // ─── Drag + snap ───────────────────────────────────────────────────────
+    function wireDrag(el, id) {
+      const header = el.querySelector(".widget-header");
+      let startX, startY, originLeft, originTop, draggingPointerId = null;
+
+      header.addEventListener("pointerdown", (e) => {
+        if (e.target.closest(".widget-close")) return;
+        e.preventDefault();
+        draggingPointerId = e.pointerId;
+        header.setPointerCapture(e.pointerId);
+        const rect = el.getBoundingClientRect();
+        startX = e.clientX;
+        startY = e.clientY;
+        originLeft = rect.left;
+        originTop = rect.top;
+        el.classList.add("dragging");
+        el.style.transition = "transform 0.12s, box-shadow 0.12s";
+        el.style.left = originLeft + "px";
+        el.style.top = originTop + "px";
+        el.style.right = "auto";
+        el.style.bottom = "auto";
+      });
+
+      header.addEventListener("pointermove", (e) => {
+        if (e.pointerId !== draggingPointerId) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        el.style.left = (originLeft + dx) + "px";
+        el.style.top = (originTop + dy) + "px";
+      });
+
+      function endDrag(e) {
+        if (e.pointerId !== draggingPointerId) return;
+        draggingPointerId = null;
+        try { header.releasePointerCapture(e.pointerId); } catch {}
+        el.classList.remove("dragging");
+        el.style.transition = "";
+
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const distLeft = cx;
+        const distRight = window.innerWidth - cx;
+        const distBottom = window.innerHeight - cy;
+        const minDist = Math.min(distLeft, distRight, distBottom);
+        const targetLane = minDist === distLeft ? "left"
+          : minDist === distRight ? "right"
+          : "bottom";
+
+        SNAP_LANES.forEach((l) => {
+          state.lanes[l] = state.lanes[l].filter((x) => x !== id);
+        });
+        state.lanes[targetLane].push(id);
+        saveState();
+        applyLayout();
+      }
+
+      header.addEventListener("pointerup", endDrag);
+      header.addEventListener("pointercancel", endDrag);
+    }
+
+    // ─── Open / close ──────────────────────────────────────────────────────
+    function openWidget(id) {
+      if (state.open[id]) return;
+      state.open[id] = true;
+      const inAny = SNAP_LANES.some((l) => state.lanes[l].includes(id));
+      if (!inAny) state.lanes.right.push(id);
+      saveState();
+      sync();
+    }
+
+    function closeWidget(id) {
+      if (!state.open[id]) return;
+      state.open[id] = false;
+      SNAP_LANES.forEach((l) => {
+        state.lanes[l] = state.lanes[l].filter((x) => x !== id);
+      });
+      saveState();
+      sync();
+    }
+
+    // ─── Sync (mount/unmount/menu/layout) ─────────────────────────────────
+    function sync() {
+      const wanted = new Set(WIDGETS.filter((w) => state.open[w.id]).map((w) => w.id));
+      instances.forEach((inst, id) => {
+        if (!wanted.has(id)) {
+          inst.el.remove();
+          instances.delete(id);
+        }
+      });
+      WIDGETS.forEach((def) => {
+        if (state.open[def.id] && !instances.has(def.id)) {
+          const inst = buildWidget(def);
+          widgetRoot.append(inst.el);
+          instances.set(def.id, inst);
+        }
+      });
+      renderMenu();
+      requestAnimationFrame(() => {
+        applyLayout();
+        tick();
+      });
+    }
+
+    function renderMenu() {
+      menuList.innerHTML = "";
+      WIDGETS.forEach((def) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "widget-menu-item" + (state.open[def.id] ? " active" : "");
+        item.innerHTML = `
+          <span class="dot" aria-hidden="true"></span>
+          <span class="label">${def.title}</span>
+          <span class="state">${state.open[def.id] ? "On" : "Off"}</span>
+        `;
+        item.addEventListener("click", () => {
+          if (state.open[def.id]) closeWidget(def.id);
+          else openWidget(def.id);
+        });
+        menuList.append(item);
+      });
+    }
+
+    function tick() {
+      const d = currentDate();
+      instances.forEach((inst) => inst.update(d));
+    }
+
+    // ─── Dropdown open / close ─────────────────────────────────────────────
+    const dropdown = document.querySelector("#widget-dropdown");
+    const trigger = document.querySelector("#widget-dropdown-trigger");
+    const panel = document.querySelector("#widget-dropdown-panel");
+
+    function setDropdown(open) {
+      dropdown.classList.toggle("open", open);
+      trigger.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) panel.removeAttribute("hidden");
+      else panel.setAttribute("hidden", "");
+    }
+
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setDropdown(!dropdown.classList.contains("open"));
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!dropdown.contains(e.target)) setDropdown(false);
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && dropdown.classList.contains("open")) setDropdown(false);
+    });
+
+    sync();
+    window.addEventListener("scroll", tick, { passive: true });
+    window.addEventListener("resize", () => { applyLayout(); tick(); }, { passive: true });
+  })();
+  </script>
+
+  <!-- ═══════════════════════════════════════════════
+       AUDIO ENGINE
+       Event-tied era tracks. Each zone's gain rises to 1
+       when its anchor passes through viewport centre and
+       fades to 0 a half-viewport away (no static, no tuning).
+  ════════════════════════════════════════════════ -->
+  <script>
+  (() => {
+    const AUDIO_ZONES = [
+      { id: "fdr",     src: "./FDR.mp3?v=2",              date: "1933-01", volume: 1.0  },
+      { id: "jazz",    src: "./Jazz.mp3?v=2",             date: "1940-01", volume: 0.15 },
+      { id: "victory", src: "./Churchill_Victory.mp3?v=2", eventMatch: "End of World War II in Europe", volume: 1.0 }
+    ];
+
+    const zoneNodes = {};
+    let isInitialised = false;
+    let masterVolume = 0.72;
+
+    // ── UI: start prompt + mute button, mounted in the ctrl-bar slot ──────
+    const slot = document.querySelector("#ctrl-audio-slot");
+
+    const startBtn = document.createElement("button");
+    startBtn.type = "button";
+    startBtn.id = "audio-start-btn";
+    startBtn.className = "ctrl-btn";
+    startBtn.setAttribute("aria-label", "Enable era audio");
+    startBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+      </svg>
+      <span>Enable era audio</span>`;
+
+    const muteBtn = document.createElement("button");
+    muteBtn.type = "button";
+    muteBtn.id = "audio-mute-btn";
+    muteBtn.className = "ctrl-btn";
+    muteBtn.setAttribute("aria-label", "Toggle audio");
+    muteBtn.style.display = "none";
+    muteBtn.style.padding = "9px 11px";
+
+    function renderMuteIcon(isMuted) {
+      muteBtn.innerHTML = isMuted
+        ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+           </svg>`
+        : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+           </svg>`;
+    }
+    renderMuteIcon(false);
+
+    slot.append(startBtn, muteBtn);
+
+    // ── Position resolution (anchor each zone to an absolute Y on stage) ──
+    function resolveZonePositions() {
+      const stageEl = document.querySelector("#stage");
+      const stageHeight = stageEl ? stageEl.offsetHeight : document.documentElement.scrollHeight;
+      AUDIO_ZONES.forEach((zone) => {
+        if (zone.date) {
+          zone._eventY = dateToProgress(parseMonth(zone.date)) * stageHeight;
+        } else if (zone.eventMatch) {
+          const entries = window.TiltingLineStore ? window.TiltingLineStore.load().entries : [];
+          const entry = entries.find((e) =>
+            e.title.toLowerCase().includes(zone.eventMatch.toLowerCase())
+          );
+          zone._eventY = entry
+            ? dateToProgress(parseMonth(entry.date)) * stageHeight
+            : null;
+        } else {
+          zone._eventY = null;
+        }
+      });
+    }
+
+    function zoneGainFromScroll(zone) {
+      if (zone._eventY == null) return 0;
+      const vh = window.innerHeight;
+      const center = window.scrollY + vh / 2;
+      const dist = Math.abs(zone._eventY - center);
+      return Math.max(0, 1 - dist / (vh / 2));
+    }
+
+    // ── Init: plain <audio> elements, no Web Audio API ──────────────────────
+    // Loaded via the browser's native media path (same as <img>), which works
+    // in preview/sandbox environments where fetch() is blocked.
+    async function init() {
+      if (isInitialised) return;
+      isInitialised = true;
+
+      await Promise.all(AUDIO_ZONES.map(async (zone) => {
+        const audioEl = new Audio();
+        audioEl.src = zone.src;
+        audioEl.loop = true;
+        audioEl.preload = "auto";
+        audioEl.volume = 0;
+
+        try {
+          await audioEl.play();
+        } catch (err) {
+          throw new Error(`${zone.src}: ${err.message || err.name || "play() failed"}`);
+        }
+
+        zoneNodes[zone.id] = { audioEl };
+      }));
+
+      resolveZonePositions();
+      updateAudio();
+    }
+
+    // ── Per-frame volume update ─────────────────────────────────────────────
+    function updateAudio() {
+      if (!isInitialised) return;
+      AUDIO_ZONES.forEach((zone) => {
+        const g = zoneGainFromScroll(zone) * (zone.volume ?? 1) * masterVolume * 0.85;
+        const node = zoneNodes[zone.id];
+        if (node) node.audioEl.volume = Math.max(0, Math.min(1, g));
+      });
+      requestAnimationFrame(updateAudio);
+    }
+
+    window.addEventListener("resize", () => {
+      if (isInitialised) resolveZonePositions();
+    });
+
+    // ── Mute toggle ─────────────────────────────────────────────────────────
+    let muted = false;
+    muteBtn.addEventListener("click", () => {
+      muted = !muted;
+      AUDIO_ZONES.forEach((zone) => {
+        const node = zoneNodes[zone.id];
+        if (node) node.audioEl.muted = muted;
+      });
+      muteBtn.style.opacity = muted ? "0.55" : "1";
+      renderMuteIcon(muted);
+    });
+
+    // ── Start on user gesture ───────────────────────────────────────────────
+    startBtn.addEventListener("click", async () => {
+      startBtn.innerHTML = `<span style="opacity:0.5">Loading audio…</span>`;
+      try {
+        await init();
+        startBtn.style.display = "none";
+        muteBtn.style.display = "inline-flex";
+      } catch (err) {
+        console.error("Audio init failed:", err);
+        isInitialised = false;
+        startBtn.innerHTML = `<span style="opacity:0.75">Error: ${err.message || err.name || "unknown"} — click to retry</span>`;
+      }
+    });
+  })();
+  </script>
   <div id="version-stamp" style="position:fixed;bottom:6px;right:10px;z-index:999;font:10px/1 monospace;color:rgba(0,0,0,0.3);pointer-events:none;">
-    v9 — 2026-05-26 14:06 UTC+0200
+    v9 — merge pending
   </div>
 </body>
 </html>
