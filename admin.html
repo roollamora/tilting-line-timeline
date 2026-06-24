@@ -1,0 +1,1116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tilting Line Admin</title>
+  <style>
+    :root {
+      --bg: #f5f1e8;
+      --ink: #111111;
+      --muted: #6f675a;
+      --panel: #fffaf2;
+      --border: rgba(17, 17, 17, 0.14);
+      --accent: #9c3f23;
+      --accent-soft: rgba(156, 63, 35, 0.12);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); }
+    .wrap { width: min(1100px, 100% - 32px); margin: 20px auto 48px; }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    h1 { margin: 0; font-size: 1.6rem; }
+    a { color: var(--accent); font-weight: 700; text-decoration: none; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .panel h2 { margin: 0 0 4px; font-size: 1rem; }
+    .panel h3 {
+      margin: 14px 0 8px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .grid.cols-2 { grid-template-columns: 1fr 1fr; }
+    .field { display: grid; gap: 5px; }
+    .field.col-span-2 { grid-column: span 2; }
+    label { font-size: 0.76rem; color: var(--muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+    input, textarea, select, button {
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      background: #fff;
+      color: var(--ink);
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    button { cursor: pointer; }
+    .primary { background: #111; color: #fff; border-color: #111; }
+    .danger { color: #912f18; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(156, 63, 35, 0.22);
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(17,17,17,0.1); vertical-align: top; }
+    th { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .hint { color: var(--muted); font-size: 0.88rem; margin: 0 0 8px; }
+    select[multiple] { min-height: 110px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.82rem; }
+
+    /* ─── Slider control: range input + numeric readout ───────────────────── */
+    .slider-row {
+      display: grid;
+      grid-template-columns: 1fr 56px;
+      gap: 8px;
+      align-items: center;
+    }
+    .slider-row input[type="range"] {
+      width: 100%;
+      padding: 0;
+      background: transparent;
+      border: 0;
+      accent-color: var(--accent);
+    }
+    .slider-out {
+      font: inherit;
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: var(--ink);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .slider-help {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    /* ─── Toggle (manual / computed) ─────────────────────────────────────── */
+    .toggle-row { display: inline-flex; padding: 4px; background: #fff; border: 1px solid var(--border); border-radius: 10px; }
+    .toggle-row button {
+      border: 0;
+      background: transparent;
+      padding: 6px 14px;
+      border-radius: 8px;
+      color: var(--ink);
+      font-weight: 700;
+      font-size: 0.86rem;
+    }
+    .toggle-row button.active {
+      background: #111;
+      color: #fff;
+    }
+
+    .status-readout {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+    .status-readout strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>Timeline Admin / Management</h1>
+      <a href="index.html">Back to Timeline</a>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ Timeline Settings -->
+    <section class="panel">
+      <h2>Timeline Settings</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="start-date">Start date</label>
+          <input id="start-date" type="month">
+        </div>
+        <div class="field">
+          <label for="end-date">End date</label>
+          <input id="end-date" type="month">
+        </div>
+        <div class="field">
+          <label for="line-count">Guide lines each side</label>
+          <input id="line-count" type="number" min="0" step="1">
+        </div>
+        <div class="field">
+          <label for="line-gap">Guide spacing at centre (px)</label>
+          <input id="line-gap" type="number" min="1" step="1">
+        </div>
+      </div>
+      <div class="actions">
+        <button id="save-settings" class="primary" type="button">Save Settings</button>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ Game Theory (NEW) -->
+    <section class="panel">
+      <h2>Game Theory</h2>
+      <p class="hint">The tilting line can be set manually (Angle Nodes panel below) or computed from a weighted sum of personalities, parties, and events. Coalition / opposition modifiers amplify or dampen each actor based on whether their allies or opponents are also active.</p>
+
+      <div class="grid cols-2" style="align-items:start;">
+        <div class="field">
+          <label>Angle source</label>
+          <div class="toggle-row" id="angle-mode-toggle">
+            <button type="button" data-mode="manual">Manual nodes</button>
+            <button type="button" data-mode="computed">Computed</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Computed curve status</label>
+          <div class="status-readout" id="game-theory-status">
+            <span class="pill" id="game-theory-mode-pill">manual</span>
+            <span><strong id="game-theory-node-count">0</strong> sample nodes cached</span>
+          </div>
+        </div>
+      </div>
+
+      <h3>Global modifiers</h3>
+      <div class="grid">
+        <div class="field">
+          <label for="coalition-bonus">Coalition bonus</label>
+          <div class="slider-row">
+            <input id="coalition-bonus" type="range" min="0" max="1" step="0.05">
+            <output for="coalition-bonus" class="slider-out" id="coalition-bonus-out">0.30</output>
+          </div>
+          <p class="slider-help">Amplification when an actor's allies are also active.</p>
+        </div>
+        <div class="field">
+          <label for="opposition-penalty">Opposition penalty</label>
+          <div class="slider-row">
+            <input id="opposition-penalty" type="range" min="0" max="1" step="0.05">
+            <output for="opposition-penalty" class="slider-out" id="opposition-penalty-out">0.30</output>
+          </div>
+          <p class="slider-help">Dampening when an actor's opponents are also active.</p>
+        </div>
+        <div class="field">
+          <label for="computed-smoothing">Smoothing</label>
+          <div class="slider-row">
+            <input id="computed-smoothing" type="range" min="0" max="1" step="0.05">
+            <output for="computed-smoothing" class="slider-out" id="computed-smoothing-out">0.60</output>
+          </div>
+          <p class="slider-help">Box filter over the computed curve. 0 = raw, 1 = heavily smoothed.</p>
+        </div>
+        <div class="field" style="align-self:end;">
+          <label>&nbsp;</label>
+          <button id="recompute-curve" class="primary" type="button">Save &amp; Recompute</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ Angle Nodes -->
+    <section class="panel">
+      <h2>Angle Nodes</h2>
+      <p class="hint">Used only when angle source is "Manual nodes". Date format is month-year.</p>
+      <div class="grid">
+        <div class="field">
+          <label for="node-id">Existing node</label>
+          <select id="node-id"></select>
+        </div>
+        <div class="field">
+          <label for="node-date">Date</label>
+          <input id="node-date" type="month">
+        </div>
+        <div class="field">
+          <label for="node-multiplier">Multiplier (-1 to 1)</label>
+          <input id="node-multiplier" type="number" min="-1" max="1" step="0.1">
+        </div>
+      </div>
+      <div class="actions">
+        <button id="save-node" class="primary" type="button">Add / Update Node</button>
+        <button id="delete-node" class="danger" type="button">Delete Node</button>
+      </div>
+      <table>
+        <thead><tr><th>Date</th><th>Multiplier</th></tr></thead>
+        <tbody id="node-table"></tbody>
+      </table>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ Events & Characters -->
+    <section class="panel">
+      <h2>Events &amp; Characters</h2>
+      <p class="hint">Entries appear as cards on the timeline. Lean + impact + decay also feed the Game Theory curve.</p>
+
+      <div class="grid">
+        <div class="field">
+          <label for="entry-id">Existing entry</label>
+          <select id="entry-id"></select>
+        </div>
+        <div class="field">
+          <label for="entry-type">Type</label>
+          <select id="entry-type">
+            <option value="event">Event</option>
+            <option value="character">Character</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="entry-date">Date</label>
+          <input id="entry-date" type="month">
+        </div>
+        <div class="field">
+          <label for="entry-title">Title</label>
+          <input id="entry-title" type="text" placeholder="Short title">
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:10px;">
+        <label for="entry-body">Description</label>
+        <textarea id="entry-body" placeholder="Context shown on timeline card"></textarea>
+      </div>
+
+      <h3>Game theory weights</h3>
+      <div class="grid">
+        <div class="field">
+          <label for="entry-lean">Lean (left ↔ right)</label>
+          <div class="slider-row">
+            <input id="entry-lean" type="range" min="-1" max="1" step="0.05">
+            <output for="entry-lean" class="slider-out" id="entry-lean-out">0.00</output>
+          </div>
+        </div>
+        <div class="field">
+          <label for="entry-impact">Impact / priority</label>
+          <div class="slider-row">
+            <input id="entry-impact" type="range" min="0" max="100" step="1">
+            <output for="entry-impact" class="slider-out" id="entry-impact-out">50</output>
+          </div>
+        </div>
+        <div class="field">
+          <label for="entry-decay">Decay (months)</label>
+          <div class="slider-row">
+            <input id="entry-decay" type="range" min="0" max="120" step="1">
+            <output for="entry-decay" class="slider-out" id="entry-decay-out">24</output>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="save-entry" class="primary" type="button">Add / Update Entry</button>
+        <button id="delete-entry" class="danger" type="button">Delete Entry</button>
+        <button id="reset-data" type="button">Reset to Default Sample</button>
+      </div>
+      <table>
+        <thead><tr><th>Date</th><th>Type</th><th>Title</th><th>Lean</th><th>Impact</th></tr></thead>
+        <tbody id="entry-table"></tbody>
+      </table>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ Parties -->
+    <section class="panel">
+      <h2>Parties</h2>
+      <p class="hint">Activity span uses established–dissolved (leave dissolution empty if ongoing). Positions JSON: [{&quot;title&quot;,&quot;start&quot;,&quot;end&quot;}].</p>
+
+      <div class="grid">
+        <div class="field">
+          <label for="party-id">Existing party</label>
+          <select id="party-id"></select>
+        </div>
+        <div class="field">
+          <label for="party-name">Name</label>
+          <input id="party-name" type="text" placeholder="Party name">
+        </div>
+        <div class="field">
+          <label for="party-established">Established</label>
+          <input id="party-established" type="month">
+        </div>
+        <div class="field">
+          <label for="party-dissolved">Dissolved</label>
+          <input id="party-dissolved" type="month">
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:10px;">
+        <label for="party-positions">Positions JSON</label>
+        <textarea id="party-positions" class="mono" placeholder='[{"title":"Chair","start":"1930-01","end":"1940-12"}]'></textarea>
+      </div>
+
+      <h3>Game theory weights</h3>
+      <div class="grid">
+        <div class="field">
+          <label for="party-leaning">Lean (left ↔ right)</label>
+          <div class="slider-row">
+            <input id="party-leaning" type="range" min="-1" max="1" step="0.05">
+            <output for="party-leaning" class="slider-out" id="party-leaning-out">0.00</output>
+          </div>
+        </div>
+        <div class="field">
+          <label for="party-influence">Influence</label>
+          <div class="slider-row">
+            <input id="party-influence" type="range" min="0" max="100" step="1">
+            <output for="party-influence" class="slider-out" id="party-influence-out">50</output>
+          </div>
+        </div>
+        <div class="field">
+          <label for="party-decay">Decay (months)</label>
+          <div class="slider-row">
+            <input id="party-decay" type="range" min="0" max="240" step="1">
+            <output for="party-decay" class="slider-out" id="party-decay-out">120</output>
+          </div>
+        </div>
+      </div>
+
+      <h3>Coalitions</h3>
+      <div class="grid cols-2">
+        <div class="field">
+          <label for="party-allies">Allies</label>
+          <select id="party-allies" multiple></select>
+        </div>
+        <div class="field">
+          <label for="party-opponents">Opponents</label>
+          <select id="party-opponents" multiple></select>
+        </div>
+      </div>
+
+      <h3>Ties</h3>
+      <div class="grid cols-2">
+        <div class="field">
+          <label for="party-tied-events">Tied events</label>
+          <select id="party-tied-events" multiple></select>
+        </div>
+        <div class="field">
+          <label for="party-tied-parties">Tied parties</label>
+          <select id="party-tied-parties" multiple></select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="save-party" class="primary" type="button">Add / Update Party</button>
+        <button id="delete-party" class="danger" type="button">Delete Party</button>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Span</th><th>Lean</th><th>Influence</th></tr></thead>
+        <tbody id="party-table"></tbody>
+      </table>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ Personalities -->
+    <section class="panel">
+      <h2>Personalities</h2>
+      <p class="hint">Score 0 = on the timeline; sign = side. Within a party, only relative scores order slots. Optional scoreSegments JSON moves someone across slots over time (smooth on timeline).</p>
+
+      <div class="grid">
+        <div class="field">
+          <label for="person-id">Existing person</label>
+          <select id="person-id"></select>
+        </div>
+        <div class="field">
+          <label for="person-name">Name</label>
+          <input id="person-name" type="text">
+        </div>
+        <div class="field">
+          <label for="person-birth">Birth</label>
+          <input id="person-birth" type="month">
+        </div>
+        <div class="field">
+          <label for="person-death">Death</label>
+          <input id="person-death" type="month">
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:10px;">
+        <label for="person-positions">Positions / offices JSON</label>
+        <textarea id="person-positions" class="mono" placeholder='[{"title":"PM","start":"1979-05","end":"1990-11"}]'></textarea>
+      </div>
+      <div class="field">
+        <label for="person-affiliations">Party affiliations JSON</label>
+        <textarea id="person-affiliations" class="mono" placeholder='[{"partyId":"party-1","start":"1932-01","end":"1945-04"}]'></textarea>
+      </div>
+      <div class="field">
+        <label for="person-score-segments">Score segments JSON (optional)</label>
+        <textarea id="person-score-segments" class="mono" placeholder='[{"start":"1930-01","end":"1940-12","score":-0.2},{"start":"1941-01","end":"1945-04","score":0.1}]'></textarea>
+      </div>
+
+      <h3>Game theory weights</h3>
+      <div class="grid">
+        <div class="field">
+          <label for="person-leaning">Lean (left ↔ right)</label>
+          <div class="slider-row">
+            <input id="person-leaning" type="range" min="-1" max="1" step="0.05">
+            <output for="person-leaning" class="slider-out" id="person-leaning-out">0.00</output>
+          </div>
+        </div>
+        <div class="field">
+          <label for="person-influence">Influence</label>
+          <div class="slider-row">
+            <input id="person-influence" type="range" min="0" max="100" step="1">
+            <output for="person-influence" class="slider-out" id="person-influence-out">60</output>
+          </div>
+        </div>
+        <div class="field">
+          <label for="person-decay">Decay (months)</label>
+          <div class="slider-row">
+            <input id="person-decay" type="range" min="0" max="240" step="1">
+            <output for="person-decay" class="slider-out" id="person-decay-out">60</output>
+          </div>
+        </div>
+      </div>
+
+      <h3>Coalitions</h3>
+      <div class="grid cols-2">
+        <div class="field">
+          <label for="person-allies">Allies</label>
+          <select id="person-allies" multiple></select>
+        </div>
+        <div class="field">
+          <label for="person-opponents">Opponents</label>
+          <select id="person-opponents" multiple></select>
+        </div>
+      </div>
+
+      <h3>Ties</h3>
+      <div class="grid cols-2">
+        <div class="field">
+          <label for="person-tied-events">Tied events</label>
+          <select id="person-tied-events" multiple></select>
+        </div>
+        <div class="field">
+          <label for="person-tied-people">Tied personalities</label>
+          <select id="person-tied-people" multiple></select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="save-person" class="primary" type="button">Add / Update Personality</button>
+        <button id="delete-person" class="danger" type="button">Delete Personality</button>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Life</th><th>Lean</th><th>Influence</th></tr></thead>
+        <tbody id="person-table"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script src="data-store.js"></script>
+  <script>
+    // ─── DOM refs ─────────────────────────────────────────────────────────
+    const $ = (id) => document.querySelector(id);
+
+    // Timeline settings
+    const startDateInput = $("#start-date");
+    const endDateInput = $("#end-date");
+    const lineCountInput = $("#line-count");
+    const lineGapInput = $("#line-gap");
+    const saveSettingsButton = $("#save-settings");
+
+    // Game theory
+    const angleModeToggle = $("#angle-mode-toggle");
+    const coalitionBonusInput = $("#coalition-bonus");
+    const oppositionPenaltyInput = $("#opposition-penalty");
+    const computedSmoothingInput = $("#computed-smoothing");
+    const recomputeButton = $("#recompute-curve");
+    const gameTheoryModePill = $("#game-theory-mode-pill");
+    const gameTheoryNodeCount = $("#game-theory-node-count");
+
+    // Angle nodes
+    const nodeIdSelect = $("#node-id");
+    const nodeDateInput = $("#node-date");
+    const nodeMultiplierInput = $("#node-multiplier");
+    const saveNodeButton = $("#save-node");
+    const deleteNodeButton = $("#delete-node");
+    const nodeTable = $("#node-table");
+
+    // Entries
+    const entryIdSelect = $("#entry-id");
+    const entryTypeInput = $("#entry-type");
+    const entryDateInput = $("#entry-date");
+    const entryTitleInput = $("#entry-title");
+    const entryBodyInput = $("#entry-body");
+    const entryLeanInput = $("#entry-lean");
+    const entryImpactInput = $("#entry-impact");
+    const entryDecayInput = $("#entry-decay");
+    const saveEntryButton = $("#save-entry");
+    const deleteEntryButton = $("#delete-entry");
+    const resetDataButton = $("#reset-data");
+    const entryTable = $("#entry-table");
+
+    // Parties
+    const partyIdSelect = $("#party-id");
+    const partyNameInput = $("#party-name");
+    const partyEstablishedInput = $("#party-established");
+    const partyDissolvedInput = $("#party-dissolved");
+    const partyLeaningInput = $("#party-leaning");
+    const partyInfluenceInput = $("#party-influence");
+    const partyDecayInput = $("#party-decay");
+    const partyPositionsInput = $("#party-positions");
+    const partyAlliesSelect = $("#party-allies");
+    const partyOpponentsSelect = $("#party-opponents");
+    const partyTiedEventsSelect = $("#party-tied-events");
+    const partyTiedPartiesSelect = $("#party-tied-parties");
+    const savePartyButton = $("#save-party");
+    const deletePartyButton = $("#delete-party");
+    const partyTable = $("#party-table");
+
+    // Personalities
+    const personIdSelect = $("#person-id");
+    const personNameInput = $("#person-name");
+    const personBirthInput = $("#person-birth");
+    const personDeathInput = $("#person-death");
+    const personLeaningInput = $("#person-leaning");
+    const personInfluenceInput = $("#person-influence");
+    const personDecayInput = $("#person-decay");
+    const personPositionsInput = $("#person-positions");
+    const personAffiliationsInput = $("#person-affiliations");
+    const personScoreSegmentsInput = $("#person-score-segments");
+    const personAlliesSelect = $("#person-allies");
+    const personOpponentsSelect = $("#person-opponents");
+    const personTiedEventsSelect = $("#person-tied-events");
+    const personTiedPeopleSelect = $("#person-tied-people");
+    const savePersonButton = $("#save-person");
+    const deletePersonButton = $("#delete-person");
+    const personTable = $("#person-table");
+
+    let data = window.TiltingLineStore.load();
+
+    // ─── Helpers ───────────────────────────────────────────────────────────
+    function monthLabel(value) {
+      const [year, month] = (value || "").split("-").map(Number);
+      if (!year || !month) return "—";
+      return new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+    }
+
+    function saveData() {
+      data = window.TiltingLineStore.save(data);
+      updateGameTheoryStatus();
+    }
+
+    function parseJsonArray(text, label) {
+      const trimmed = (text || "").trim();
+      if (!trimmed) return [];
+      try {
+        const parsed = JSON.parse(trimmed);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        window.alert(`${label} JSON is invalid. ${error.message}`);
+        return null;
+      }
+    }
+
+    function selectedIds(select) {
+      return Array.from(select.selectedOptions).map((option) => option.value);
+    }
+
+    function fillEventMultiselect(select) {
+      select.innerHTML = "";
+      data.entries
+        .filter((entry) => entry.type === "event")
+        .forEach((entry) => {
+          const option = document.createElement("option");
+          option.value = entry.id;
+          option.textContent = `${monthLabel(entry.date)} - ${entry.title}`;
+          select.append(option);
+        });
+    }
+
+    function fillActorMultiselect(select, items, excludeId) {
+      select.innerHTML = "";
+      items.forEach((item) => {
+        if (item.id === excludeId) return;
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = item.name || item.id;
+        select.append(option);
+      });
+    }
+
+    function setMultiSelectValues(select, ids) {
+      const wanted = new Set(ids || []);
+      Array.from(select.options).forEach((option) => {
+        option.selected = wanted.has(option.value);
+      });
+    }
+
+    // Wire a range input to its <output> sibling so the readout updates live.
+    function bindSlider(input, outputId, formatter) {
+      const out = document.getElementById(outputId);
+      if (!out) return;
+      const fmt = formatter || ((v) => v);
+      const render = () => { out.textContent = fmt(Number(input.value)); };
+      input.addEventListener("input", render);
+      render();
+    }
+
+    const fmt2 = (v) => v.toFixed(2);
+    const fmtInt = (v) => String(Math.round(v));
+
+    // Bind all sliders once (the input event handlers persist across renders).
+    bindSlider(coalitionBonusInput, "coalition-bonus-out", fmt2);
+    bindSlider(oppositionPenaltyInput, "opposition-penalty-out", fmt2);
+    bindSlider(computedSmoothingInput, "computed-smoothing-out", fmt2);
+    bindSlider(entryLeanInput, "entry-lean-out", fmt2);
+    bindSlider(entryImpactInput, "entry-impact-out", fmtInt);
+    bindSlider(entryDecayInput, "entry-decay-out", fmtInt);
+    bindSlider(partyLeaningInput, "party-leaning-out", fmt2);
+    bindSlider(partyInfluenceInput, "party-influence-out", fmtInt);
+    bindSlider(partyDecayInput, "party-decay-out", fmtInt);
+    bindSlider(personLeaningInput, "person-leaning-out", fmt2);
+    bindSlider(personInfluenceInput, "person-influence-out", fmtInt);
+    bindSlider(personDecayInput, "person-decay-out", fmtInt);
+
+    // ─── Render ────────────────────────────────────────────────────────────
+    function renderSettings() {
+      startDateInput.value = data.timeline.startDate;
+      endDateInput.value = data.timeline.endDate;
+      lineCountInput.value = data.timeline.guideLineCount;
+      lineGapInput.value = data.timeline.guideLineGap;
+    }
+
+    function renderGameTheory() {
+      coalitionBonusInput.value = data.timeline.coalitionBonus;
+      oppositionPenaltyInput.value = data.timeline.oppositionPenalty;
+      computedSmoothingInput.value = data.timeline.computedSmoothing;
+      // Trigger the slider readouts to recompute
+      coalitionBonusInput.dispatchEvent(new Event("input"));
+      oppositionPenaltyInput.dispatchEvent(new Event("input"));
+      computedSmoothingInput.dispatchEvent(new Event("input"));
+      // Toggle state
+      Array.from(angleModeToggle.querySelectorAll("button")).forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.mode === data.timeline.angleMode);
+      });
+      updateGameTheoryStatus();
+    }
+
+    function updateGameTheoryStatus() {
+      gameTheoryModePill.textContent = data.timeline.angleMode;
+      const nodes = (data.timeline.computed && data.timeline.computed.nodes) || [];
+      gameTheoryNodeCount.textContent = String(nodes.length);
+    }
+
+    function renderNodes(selectedId) {
+      data.angleNodes.sort((a, b) => a.date.localeCompare(b.date));
+      nodeIdSelect.innerHTML = "";
+      data.angleNodes.forEach((node) => {
+        const option = document.createElement("option");
+        option.value = node.id;
+        option.textContent = `${monthLabel(node.date)} (${Number(node.multiplier).toFixed(2)})`;
+        nodeIdSelect.append(option);
+      });
+      const newOption = document.createElement("option");
+      newOption.value = "__new__";
+      newOption.textContent = "Add new node...";
+      nodeIdSelect.append(newOption);
+
+      const targetId = selectedId || data.angleNodes[0]?.id || "__new__";
+      nodeIdSelect.value = targetId;
+      const node = data.angleNodes.find((item) => item.id === targetId);
+
+      if (node) {
+        nodeDateInput.value = node.date;
+        nodeMultiplierInput.value = node.multiplier;
+      } else {
+        nodeDateInput.value = data.timeline.startDate;
+        nodeMultiplierInput.value = 0;
+      }
+
+      nodeTable.innerHTML = "";
+      data.angleNodes.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${monthLabel(row.date)}</td><td>${Number(row.multiplier).toFixed(2)}</td>`;
+        nodeTable.append(tr);
+      });
+    }
+
+    function renderEntries(selectedId) {
+      data.entries.sort((a, b) => a.date.localeCompare(b.date));
+      entryIdSelect.innerHTML = "";
+      data.entries.forEach((entry) => {
+        const option = document.createElement("option");
+        option.value = entry.id;
+        option.textContent = `${monthLabel(entry.date)} - ${entry.title}`;
+        entryIdSelect.append(option);
+      });
+      const newOption = document.createElement("option");
+      newOption.value = "__new__";
+      newOption.textContent = "Add new entry...";
+      entryIdSelect.append(newOption);
+
+      const targetId = selectedId || data.entries[0]?.id || "__new__";
+      entryIdSelect.value = targetId;
+      const entry = data.entries.find((item) => item.id === targetId);
+      if (entry) {
+        entryTypeInput.value = entry.type;
+        entryDateInput.value = entry.date;
+        entryTitleInput.value = entry.title;
+        entryBodyInput.value = entry.body;
+        entryLeanInput.value = entry.lean ?? 0;
+        entryImpactInput.value = entry.impact ?? 50;
+        entryDecayInput.value = entry.decayMonths ?? 24;
+      } else {
+        entryTypeInput.value = "event";
+        entryDateInput.value = data.timeline.startDate;
+        entryTitleInput.value = "";
+        entryBodyInput.value = "";
+        entryLeanInput.value = 0;
+        entryImpactInput.value = 50;
+        entryDecayInput.value = 24;
+      }
+      // Refresh slider readouts.
+      [entryLeanInput, entryImpactInput, entryDecayInput].forEach((i) => i.dispatchEvent(new Event("input")));
+
+      entryTable.innerHTML = "";
+      data.entries.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${monthLabel(row.date)}</td><td>${row.type}</td><td>${row.title}</td><td>${Number(row.lean ?? 0).toFixed(2)}</td><td>${row.impact ?? 0}</td>`;
+        entryTable.append(tr);
+      });
+    }
+
+    function renderParties(selectedId) {
+      data.parties.sort((a, b) => a.established.localeCompare(b.established));
+      partyIdSelect.innerHTML = "";
+      data.parties.forEach((party) => {
+        const option = document.createElement("option");
+        option.value = party.id;
+        option.textContent = party.name || party.id;
+        partyIdSelect.append(option);
+      });
+      const newOption = document.createElement("option");
+      newOption.value = "__new__";
+      newOption.textContent = "Add new party...";
+      partyIdSelect.append(newOption);
+
+      const targetId = selectedId || data.parties[0]?.id || "__new__";
+      partyIdSelect.value = targetId;
+      const party = data.parties.find((item) => item.id === targetId);
+
+      fillEventMultiselect(partyTiedEventsSelect);
+      fillActorMultiselect(partyTiedPartiesSelect, data.parties, targetId);
+      fillActorMultiselect(partyAlliesSelect, data.parties, targetId);
+      fillActorMultiselect(partyOpponentsSelect, data.parties, targetId);
+
+      if (party) {
+        partyNameInput.value = party.name;
+        partyEstablishedInput.value = party.established;
+        partyDissolvedInput.value = party.dissolved || "";
+        partyLeaningInput.value = party.leaningScore;
+        partyInfluenceInput.value = party.influence ?? 50;
+        partyDecayInput.value = party.decayMonths ?? 120;
+        partyPositionsInput.value = JSON.stringify(party.positions || [], null, 0);
+        setMultiSelectValues(partyTiedEventsSelect, party.tiedEventIds);
+        setMultiSelectValues(partyTiedPartiesSelect, party.tiedPartyIds);
+        setMultiSelectValues(partyAlliesSelect, party.allies);
+        setMultiSelectValues(partyOpponentsSelect, party.opponents);
+      } else {
+        partyNameInput.value = "";
+        partyEstablishedInput.value = data.timeline.startDate;
+        partyDissolvedInput.value = "";
+        partyLeaningInput.value = 0;
+        partyInfluenceInput.value = 50;
+        partyDecayInput.value = 120;
+        partyPositionsInput.value = "[]";
+        setMultiSelectValues(partyTiedEventsSelect, []);
+        setMultiSelectValues(partyTiedPartiesSelect, []);
+        setMultiSelectValues(partyAlliesSelect, []);
+        setMultiSelectValues(partyOpponentsSelect, []);
+      }
+      [partyLeaningInput, partyInfluenceInput, partyDecayInput].forEach((i) => i.dispatchEvent(new Event("input")));
+
+      partyTable.innerHTML = "";
+      data.parties.forEach((row) => {
+        const tr = document.createElement("tr");
+        const span = row.dissolved ? `${monthLabel(row.established)} – ${monthLabel(row.dissolved)}` : `${monthLabel(row.established)} – …`;
+        tr.innerHTML = `<td>${row.name}</td><td>${span}</td><td>${Number(row.leaningScore).toFixed(2)}</td><td>${row.influence ?? 0}</td>`;
+        partyTable.append(tr);
+      });
+    }
+
+    function renderPersonalities(selectedId) {
+      data.personalities.sort((a, b) => a.birthDate.localeCompare(b.birthDate));
+      personIdSelect.innerHTML = "";
+      data.personalities.forEach((person) => {
+        const option = document.createElement("option");
+        option.value = person.id;
+        option.textContent = person.name || person.id;
+        personIdSelect.append(option);
+      });
+      const newOption = document.createElement("option");
+      newOption.value = "__new__";
+      newOption.textContent = "Add new personality...";
+      personIdSelect.append(newOption);
+
+      const targetId = selectedId || data.personalities[0]?.id || "__new__";
+      personIdSelect.value = targetId;
+      const person = data.personalities.find((item) => item.id === targetId);
+
+      fillEventMultiselect(personTiedEventsSelect);
+      fillActorMultiselect(personTiedPeopleSelect, data.personalities, targetId);
+      fillActorMultiselect(personAlliesSelect, data.personalities, targetId);
+      fillActorMultiselect(personOpponentsSelect, data.personalities, targetId);
+
+      if (person) {
+        personNameInput.value = person.name;
+        personBirthInput.value = person.birthDate;
+        personDeathInput.value = person.deathDate;
+        personLeaningInput.value = person.leaningScore;
+        personInfluenceInput.value = person.influence ?? 60;
+        personDecayInput.value = person.decayMonths ?? 60;
+        personPositionsInput.value = JSON.stringify(person.positions || [], null, 0);
+        personAffiliationsInput.value = JSON.stringify(person.partyAffiliations || [], null, 0);
+        personScoreSegmentsInput.value = JSON.stringify(person.scoreSegments || [], null, 0);
+        setMultiSelectValues(personTiedEventsSelect, person.tiedEventIds);
+        setMultiSelectValues(personTiedPeopleSelect, person.tiedPersonalityIds);
+        setMultiSelectValues(personAlliesSelect, person.allies);
+        setMultiSelectValues(personOpponentsSelect, person.opponents);
+      } else {
+        personNameInput.value = "";
+        personBirthInput.value = data.timeline.startDate;
+        personDeathInput.value = data.timeline.endDate;
+        personLeaningInput.value = 0;
+        personInfluenceInput.value = 60;
+        personDecayInput.value = 60;
+        personPositionsInput.value = "[]";
+        personAffiliationsInput.value = "[]";
+        personScoreSegmentsInput.value = "";
+        setMultiSelectValues(personTiedEventsSelect, []);
+        setMultiSelectValues(personTiedPeopleSelect, []);
+        setMultiSelectValues(personAlliesSelect, []);
+        setMultiSelectValues(personOpponentsSelect, []);
+      }
+      [personLeaningInput, personInfluenceInput, personDecayInput].forEach((i) => i.dispatchEvent(new Event("input")));
+
+      personTable.innerHTML = "";
+      data.personalities.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${row.name}</td><td>${monthLabel(row.birthDate)} – ${monthLabel(row.deathDate)}</td><td>${Number(row.leaningScore).toFixed(2)}</td><td>${row.influence ?? 0}</td>`;
+        personTable.append(tr);
+      });
+    }
+
+    // ─── Handlers ──────────────────────────────────────────────────────────
+    saveSettingsButton.addEventListener("click", () => {
+      data.timeline.startDate = startDateInput.value || data.timeline.startDate;
+      data.timeline.endDate = endDateInput.value || data.timeline.endDate;
+      data.timeline.guideLineCount = Math.max(0, Math.round(Number(lineCountInput.value) || data.timeline.guideLineCount));
+      data.timeline.guideLineGap = Math.max(1, Number(lineGapInput.value) || data.timeline.guideLineGap);
+      saveData();
+      renderSettings();
+      renderParties(partyIdSelect.value);
+      renderPersonalities(personIdSelect.value);
+    });
+
+    // Game theory toggle
+    angleModeToggle.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-mode]");
+      if (!btn) return;
+      data.timeline.angleMode = btn.dataset.mode;
+      saveData();
+      renderGameTheory();
+    });
+
+    recomputeButton.addEventListener("click", () => {
+      data.timeline.coalitionBonus = Number(coalitionBonusInput.value);
+      data.timeline.oppositionPenalty = Number(oppositionPenaltyInput.value);
+      data.timeline.computedSmoothing = Number(computedSmoothingInput.value);
+      // Force computed mode for the recompute so the curve is actually generated.
+      const previousMode = data.timeline.angleMode;
+      data.timeline.angleMode = "computed";
+      saveData();
+      // Restore the user's selected mode after computing (computed curve is cached either way).
+      if (previousMode !== "computed") {
+        data.timeline.angleMode = previousMode;
+        saveData();
+      }
+      renderGameTheory();
+    });
+
+    // Angle nodes
+    nodeIdSelect.addEventListener("change", () => renderNodes(nodeIdSelect.value));
+
+    saveNodeButton.addEventListener("click", () => {
+      const id = nodeIdSelect.value;
+      const nextNode = {
+        id: id === "__new__" ? `node-${Date.now()}` : id,
+        date: nodeDateInput.value || data.timeline.startDate,
+        multiplier: Math.max(-1, Math.min(1, Number(nodeMultiplierInput.value) || 0))
+      };
+      const existing = data.angleNodes.find((node) => node.id === nextNode.id);
+      if (existing) Object.assign(existing, nextNode);
+      else data.angleNodes.push(nextNode);
+      saveData();
+      renderNodes(nextNode.id);
+    });
+
+    deleteNodeButton.addEventListener("click", () => {
+      const id = nodeIdSelect.value;
+      if (id === "__new__") return;
+      data.angleNodes = data.angleNodes.filter((node) => node.id !== id);
+      saveData();
+      renderNodes();
+    });
+
+    // Entries
+    entryIdSelect.addEventListener("change", () => renderEntries(entryIdSelect.value));
+
+    saveEntryButton.addEventListener("click", () => {
+      const id = entryIdSelect.value;
+      const nextEntry = {
+        id: id === "__new__" ? `entry-${Date.now()}` : id,
+        type: entryTypeInput.value === "character" ? "character" : "event",
+        date: entryDateInput.value || data.timeline.startDate,
+        title: entryTitleInput.value.trim(),
+        body: entryBodyInput.value.trim(),
+        lean: Number(entryLeanInput.value) || 0,
+        impact: Number(entryImpactInput.value) || 0,
+        decayMonths: Math.max(0, Math.round(Number(entryDecayInput.value) || 0))
+      };
+      const existing = data.entries.find((entry) => entry.id === nextEntry.id);
+      if (existing) Object.assign(existing, nextEntry);
+      else data.entries.push(nextEntry);
+      saveData();
+      renderEntries(nextEntry.id);
+      renderParties(partyIdSelect.value);
+      renderPersonalities(personIdSelect.value);
+    });
+
+    deleteEntryButton.addEventListener("click", () => {
+      const id = entryIdSelect.value;
+      if (id === "__new__") return;
+      data.entries = data.entries.filter((entry) => entry.id !== id);
+      saveData();
+      renderEntries();
+      renderParties(partyIdSelect.value);
+      renderPersonalities(personIdSelect.value);
+    });
+
+    resetDataButton.addEventListener("click", () => {
+      data = window.TiltingLineStore.reset();
+      renderSettings();
+      renderGameTheory();
+      renderNodes();
+      renderEntries();
+      renderParties();
+      renderPersonalities();
+    });
+
+    // Parties
+    partyIdSelect.addEventListener("change", () => renderParties(partyIdSelect.value));
+
+    savePartyButton.addEventListener("click", () => {
+      const positions = parseJsonArray(partyPositionsInput.value, "Party positions");
+      if (positions === null) return;
+      const id = partyIdSelect.value;
+      const nextParty = {
+        id: id === "__new__" ? `party-${Date.now()}` : id,
+        name: partyNameInput.value.trim(),
+        established: partyEstablishedInput.value || data.timeline.startDate,
+        dissolved: partyDissolvedInput.value || "",
+        positions,
+        leaningScore: Number(partyLeaningInput.value) || 0,
+        influence: Number(partyInfluenceInput.value) || 0,
+        decayMonths: Math.max(0, Math.round(Number(partyDecayInput.value) || 0)),
+        allies: selectedIds(partyAlliesSelect),
+        opponents: selectedIds(partyOpponentsSelect),
+        tiedEventIds: selectedIds(partyTiedEventsSelect),
+        tiedPartyIds: selectedIds(partyTiedPartiesSelect)
+      };
+      const existing = data.parties.find((party) => party.id === nextParty.id);
+      if (existing) Object.assign(existing, nextParty);
+      else data.parties.push(nextParty);
+      saveData();
+      renderParties(nextParty.id);
+      renderPersonalities(personIdSelect.value);
+    });
+
+    deletePartyButton.addEventListener("click", () => {
+      const id = partyIdSelect.value;
+      if (id === "__new__") return;
+      data.parties = data.parties.filter((party) => party.id !== id);
+      data.personalities.forEach((person) => {
+        person.partyAffiliations = (person.partyAffiliations || []).filter((row) => row.partyId !== id);
+      });
+      // Clean orphan ally/opponent refs in other parties
+      data.parties.forEach((other) => {
+        other.allies = (other.allies || []).filter((x) => x !== id);
+        other.opponents = (other.opponents || []).filter((x) => x !== id);
+        other.tiedPartyIds = (other.tiedPartyIds || []).filter((x) => x !== id);
+      });
+      saveData();
+      renderParties();
+      renderPersonalities();
+    });
+
+    // Personalities
+    personIdSelect.addEventListener("change", () => renderPersonalities(personIdSelect.value));
+
+    savePersonButton.addEventListener("click", () => {
+      const positions = parseJsonArray(personPositionsInput.value, "Person positions");
+      const affiliations = parseJsonArray(personAffiliationsInput.value, "Party affiliations");
+      const segments = parseJsonArray(personScoreSegmentsInput.value, "Score segments");
+      if (positions === null || affiliations === null || segments === null) return;
+      const id = personIdSelect.value;
+      const nextPerson = {
+        id: id === "__new__" ? `per-${Date.now()}` : id,
+        name: personNameInput.value.trim(),
+        birthDate: personBirthInput.value || data.timeline.startDate,
+        deathDate: personDeathInput.value || data.timeline.endDate,
+        positions,
+        leaningScore: Number(personLeaningInput.value) || 0,
+        influence: Number(personInfluenceInput.value) || 0,
+        decayMonths: Math.max(0, Math.round(Number(personDecayInput.value) || 0)),
+        allies: selectedIds(personAlliesSelect),
+        opponents: selectedIds(personOpponentsSelect),
+        partyAffiliations: affiliations,
+        tiedEventIds: selectedIds(personTiedEventsSelect),
+        tiedPersonalityIds: selectedIds(personTiedPeopleSelect),
+        scoreSegments: segments
+      };
+      const existing = data.personalities.find((person) => person.id === nextPerson.id);
+      if (existing) Object.assign(existing, nextPerson);
+      else data.personalities.push(nextPerson);
+      saveData();
+      renderPersonalities(nextPerson.id);
+    });
+
+    deletePersonButton.addEventListener("click", () => {
+      const id = personIdSelect.value;
+      if (id === "__new__") return;
+      data.personalities = data.personalities.filter((person) => person.id !== id);
+      data.personalities.forEach((person) => {
+        person.tiedPersonalityIds = (person.tiedPersonalityIds || []).filter((x) => x !== id);
+        person.allies = (person.allies || []).filter((x) => x !== id);
+        person.opponents = (person.opponents || []).filter((x) => x !== id);
+      });
+      saveData();
+      renderPersonalities();
+    });
+
+    // ─── Init ──────────────────────────────────────────────────────────────
+    renderSettings();
+    renderGameTheory();
+    renderNodes();
+    renderEntries();
+    renderParties();
+    renderPersonalities();
+  </script>
+</body>
+</html>
