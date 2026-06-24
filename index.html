@@ -97,13 +97,13 @@
       height: 140px;
       transform: translate(-50%, -50%) rotate(var(--line-angle));
       transform-origin: center;
-      transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .guide-lines {
       position: absolute;
       top: 50%;
       left: 0;
+      z-index: 0;
       width: 100%;
       height: 1800px;
       overflow: visible;
@@ -112,6 +112,18 @@
 
     .guide-line-pink {
       stroke: rgba(214, 58, 136, 0.4);
+    }
+
+    .person-cards {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      z-index: 2;
+      width: 100%;
+      height: 1800px;
+      overflow: visible;
+      transform: translateY(-50%);
+      pointer-events: none;
     }
 
     .person-card {
@@ -130,6 +142,7 @@
     .line {
       position: absolute;
       inset: 0;
+      z-index: 1;
       width: 100%;
       height: 100%;
       background: #050505;
@@ -394,7 +407,6 @@
       height: 140px;
       transform: translate(-50%, -50%) rotate(var(--line-angle));
       transform-origin: center;
-      transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .line-orbs {
@@ -974,6 +986,7 @@
       <div class="line-wrap">
         <svg class="guide-lines" id="guide-lines" viewBox="0 -900 1000 1800" preserveAspectRatio="none"></svg>
         <div class="line"></div>
+        <svg class="person-cards" id="person-cards" viewBox="0 -900 1000 1800" preserveAspectRatio="none" aria-hidden="true"></svg>
       </div>
     </div>
     <div class="bubble-viewport" aria-label="Linked context events">
@@ -1005,7 +1018,10 @@
     const dateValue = document.querySelector("#date-value");
     const dateAngle = document.querySelector("#date-angle");
     const guideLines = document.querySelector("#guide-lines");
+    const personCardsLayer = document.querySelector("#person-cards");
     const newNodeValue = "__new_node__";
+    const SCROLL_TIME_FACTOR = 5;
+    const PERSON_STRIPE_GUIDE_XS = [0, 250, 500, 750, 1000];
     const guideLineCount = Math.max(0, Number(timelineSettings.guideLineCount) || 20);
     const guideLineCentreGap = Math.max(1, Number(timelineSettings.guideLineGap) || 20);
     const guideSamplePoints = [0, 1000];
@@ -1013,6 +1029,10 @@
     const timelineMinThicknessPx = 20;
     let perspectiveDepth = clamp(Number(timelineSettings.perspectiveDepth) || 1, 1, 3);
     let zzDirection = null;
+    let targetAngleDeg = 30;
+    let renderedAngleDeg = 30;
+    let latestMultiplier = 1;
+    let tiltRaf = 0;
 
     // If the timeline is in "computed" mode AND we have a non-empty computed
     // node list cached on save, use those nodes for the angle curve. Otherwise
@@ -1073,12 +1093,17 @@
       return `${year}-${String(month).padStart(2, "0")}`;
     }
 
+    function dateToBaseProgress(date) {
+      return (date.getTime() - startDate.getTime()) / (endDate.getTime() - startDate.getTime());
+    }
+
     function dateToProgress(date) {
-      return clamp((date.getTime() - startDate.getTime()) / (endDate.getTime() - startDate.getTime()), 0, 1);
+      return clamp(dateToBaseProgress(date), 0, 1);
     }
 
     function progressToDate(progress) {
-      const time = startDate.getTime() + progress * (endDate.getTime() - startDate.getTime());
+      const normalized = clamp(progress, 0, 1);
+      const time = startDate.getTime() + normalized * (endDate.getTime() - startDate.getTime());
       return new Date(time);
     }
 
@@ -1114,7 +1139,7 @@
       if (!perspectiveDepthValue) {
         return;
       }
-      perspectiveDepthValue.textContent = `${perspectiveDepth.toFixed(2)}x depth | ${timeCondenseFactor().toFixed(2)}x time`;
+      perspectiveDepthValue.textContent = `${perspectiveDepth.toFixed(2)}x depth`;
     }
 
     function updateTimelineLineProfile() {
@@ -1144,9 +1169,8 @@
       if (!stage) {
         return;
       }
-      const baseScrollRange = Math.max(1, baseStageMinHeightPx - window.innerHeight);
-      const adjustedScrollRange = baseScrollRange / timeCondenseFactor();
-      stage.style.minHeight = `${window.innerHeight + adjustedScrollRange}px`;
+      const baseScrollRange = Math.max(1, 12000 - window.innerHeight);
+      stage.style.minHeight = `${window.innerHeight + baseScrollRange / SCROLL_TIME_FACTOR}px`;
     }
 
     function lineWrapPercentPointToViewport(pxPercent, pyPercent, angleDeg) {
@@ -1379,59 +1403,80 @@
       return slots;
     }
 
-    function personCardGeometry(dateFrom, dateTo, side, lineNumber, angleDeg, params) {
+    function intersectPolylineWithLine(polyline, line) {
+      for (let index = 0; index < polyline.length - 1; index += 1) {
+        const segment = lineFromPoints(polyline[index], polyline[index + 1]);
+        const point = intersectLines(line, segment);
+        if (point) {
+          return point;
+        }
+      }
+      return null;
+    }
+
+    function guideViewportPolyline(side, lineNumber, angleDeg, params, isPink) {
+      return PERSON_STRIPE_GUIDE_XS.map((x) => {
+        if (isPink) {
+          const projected = projectedPinkLocalPoint(side, lineNumber, x, angleDeg, params);
+          return guideLocalPointToViewport(projected.x, projected.y, angleDeg, params);
+        }
+        const y = guideLocalY(side, lineNumber, x);
+        return guideLocalPointToViewport(x, y, angleDeg, params);
+      });
+    }
+
+    function viewportYForDate(date) {
+      const stageRect = stage.getBoundingClientRect();
+      return stageRect.top + dateToProgress(date) * stage.offsetHeight;
+    }
+
+    function timeSliceLine(viewportY, angleDeg) {
+      const origin = timelineCenterPointAtViewportY(viewportY, angleDeg);
+      const dir = zzDirection && zzDirection.unit ? zzDirection.unit : { x: 0, y: -1 };
+      return lineFromPointAndDir(origin, dir);
+    }
+
+    function personStripeCorners(birth, death, side, lineNumber, angleDeg, params) {
       if (!stage || !zzDirection) {
         return null;
       }
-
-      const stageRect = stage.getBoundingClientRect();
-      const stageHeight = stage.offsetHeight;
-      const pFrom = dateToProgress(dateFrom);
-      const pTo = dateToProgress(dateTo);
-      if (pTo <= pFrom) {
+      if (death <= birth) {
         return null;
       }
 
-      const yFrom = stageRect.top + pFrom * stageHeight;
-      const yTo = stageRect.top + pTo * stageHeight;
-      const zzDir = zzDirection.unit;
-      const zzLineFrom = lineFromPointAndDir(timelineCenterPointAtViewportY(yFrom, angleDeg), zzDir);
-      const zzLineTo = lineFromPointAndDir(timelineCenterPointAtViewportY(yTo, angleDeg), zzDir);
-      const blackLine = lineFromPoints(
-        guideLocalPointToViewport(0, guideLocalY(side, lineNumber, 0), angleDeg, params),
-        guideLocalPointToViewport(1000, guideLocalY(side, lineNumber, 1000), angleDeg, params)
-      );
-      const pinkP0 = projectedPinkLocalPoint(side, lineNumber, 0, angleDeg, params);
-      const pinkP1 = projectedPinkLocalPoint(side, lineNumber, 1000, angleDeg, params);
-      const pinkLine = lineFromPoints(
-        guideLocalPointToViewport(pinkP0.x, pinkP0.y, angleDeg, params),
-        guideLocalPointToViewport(pinkP1.x, pinkP1.y, angleDeg, params)
-      );
-
-      const blackFrom = intersectLines(blackLine, zzLineFrom);
-      const pinkFrom = intersectLines(pinkLine, zzLineFrom);
-      const pinkTo = intersectLines(pinkLine, zzLineTo);
-      const blackTo = intersectLines(blackLine, zzLineTo);
-      if (!blackFrom || !pinkFrom || !pinkTo || !blackTo) {
+      const yBirth = viewportYForDate(birth);
+      const yDeath = viewportYForDate(death);
+      if (yDeath <= yBirth) {
         return null;
       }
 
-      const p1 = viewportPointToGuideLocal(blackFrom.x, blackFrom.y, angleDeg, params);
-      const p2 = viewportPointToGuideLocal(pinkFrom.x, pinkFrom.y, angleDeg, params);
-      const p3 = viewportPointToGuideLocal(pinkTo.x, pinkTo.y, angleDeg, params);
-      const p4 = viewportPointToGuideLocal(blackTo.x, blackTo.y, angleDeg, params);
-      return {
-        points: [`${p1.x},${p1.y}`, `${p2.x},${p2.y}`, `${p3.x},${p3.y}`, `${p4.x},${p4.y}`].join(" "),
-        timeAxis: { x1: p1.x, y1: p1.y, x2: p4.x, y2: p4.y }
-      };
+      const blackGuide = guideViewportPolyline(side, lineNumber, angleDeg, params, false);
+      const pinkGuide = guideViewportPolyline(side, lineNumber, angleDeg, params, true);
+      const sliceBirth = timeSliceLine(yBirth, angleDeg);
+      const sliceDeath = timeSliceLine(yDeath, angleDeg);
+
+      const blackBirth = intersectPolylineWithLine(blackGuide, sliceBirth);
+      const pinkBirth = intersectPolylineWithLine(pinkGuide, sliceBirth);
+      const pinkDeath = intersectPolylineWithLine(pinkGuide, sliceDeath);
+      const blackDeath = intersectPolylineWithLine(blackGuide, sliceDeath);
+      if (!blackBirth || !pinkBirth || !pinkDeath || !blackDeath) {
+        return null;
+      }
+
+      const toLocal = (point) => viewportPointToGuideLocal(point.x, point.y, angleDeg, params);
+      return [toLocal(blackBirth), toLocal(pinkBirth), toLocal(pinkDeath), toLocal(blackDeath)];
+    }
+
+    function personStripePoints(corners) {
+      return corners.map((point) => `${point.x},${point.y}`).join(" ");
     }
 
     function renderPersonCards(angleDeg) {
-      if (!guideLines || !zzDirection || !stage) {
+      if (!personCardsLayer || !zzDirection || !stage) {
         return;
       }
 
-      guideLines.querySelectorAll(".person-card").forEach((node) => node.remove());
+      personCardsLayer.innerHTML = "";
 
       const params = getGuideTransformParams();
       const slots = assignPersonGuideSlots(personalities);
@@ -1442,10 +1487,11 @@
         if (!slot) {
           return;
         }
+
         const birth = parseMonth(person.birthDate);
         const death = parseMonth(person.deathDate);
-        const geometry = personCardGeometry(birth, death, slot.side, slot.lineNumber, angleDeg, params);
-        if (!geometry) {
+        const corners = personStripeCorners(birth, death, slot.side, slot.lineNumber, angleDeg, params);
+        if (!corners) {
           return;
         }
 
@@ -1455,7 +1501,7 @@
         polygon.setAttribute("data-person-id", person.id);
         polygon.setAttribute("data-person-name", person.name || person.id);
         polygon.setAttribute("data-side", slot.side < 0 ? "left" : "right");
-        polygon.setAttribute("points", geometry.points);
+        polygon.setAttribute("points", personStripePoints(corners));
         polygon.setAttribute("fill", colorWithAlpha(color, PERSON_CARD_OPACITY));
         polygon.setAttribute("stroke", colorWithAlpha(color, 0.55));
         polygon.setAttribute("stroke-width", "1");
@@ -1463,7 +1509,7 @@
         fragment.append(polygon);
       });
 
-      guideLines.append(fragment);
+      personCardsLayer.append(fragment);
     }
     function guidePathFor(side, lineNumber) {
       const xAnchor = 500;
@@ -1519,7 +1565,34 @@
       }
 
       guideLines.append(fragment);
+    }
+
+    let lastRenderedGuideAngle = null;
+
+    function applyTiltScene(angleDeg, multiplier) {
+      document.documentElement.style.setProperty("--line-angle", `${angleDeg}deg`);
+      const profile = updateTimelineLineProfile();
+      updateZZDirection(multiplier, angleDeg, profile);
+      const angleChanged = lastRenderedGuideAngle === null
+        || Math.abs(lastRenderedGuideAngle - angleDeg) > 0.02;
+      if (angleChanged) {
+        renderGuideLines(angleDeg);
+        lastRenderedGuideAngle = angleDeg;
+      }
       renderPersonCards(angleDeg);
+    }
+
+    function tickTiltAnimation() {
+      tiltRaf = 0;
+      const delta = targetAngleDeg - renderedAngleDeg;
+      renderedAngleDeg += delta * 0.22;
+      if (Math.abs(delta) < 0.02) {
+        renderedAngleDeg = targetAngleDeg;
+      }
+      applyTiltScene(renderedAngleDeg, latestMultiplier);
+      if (Math.abs(targetAngleDeg - renderedAngleDeg) >= 0.02) {
+        tiltRaf = window.requestAnimationFrame(tickTiltAnimation);
+      }
     }
 
     function sortNodes() {
@@ -1571,7 +1644,7 @@
 
     function getScrollProgress() {
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      return maxScroll > 0 ? clamp((window.scrollY / maxScroll) * 5, 0, 1) : 0;
+      return maxScroll > 0 ? clamp((window.scrollY / maxScroll) * SCROLL_TIME_FACTOR, 0, 1) : 0;
     }
 
     function updateTimeline() {
@@ -1581,11 +1654,12 @@
       const rawAngle = multiplierToAngle(multiplier);
       const angle = mapDisplayedAngle(rawAngle);
 
-      document.documentElement.style.setProperty("--line-angle", `${angle}deg`);
+      targetAngleDeg = angle;
+      latestMultiplier = multiplier;
       document.documentElement.style.setProperty("--progress-height", `${progress * 100}%`);
-      const profile = updateTimelineLineProfile();
-      updateZZDirection(multiplier, angle, profile);
-      renderGuideLines(angle);
+      if (!tiltRaf) {
+        tiltRaf = window.requestAnimationFrame(tickTiltAnimation);
+      }
       dateValue.textContent = monthFormatter.format(currentDate);
       dateAngle.textContent = `${angle.toFixed(1)} deg, ${multiplier >= 0 ? "+" : ""}${multiplier.toFixed(2)}`;
     }
@@ -1939,7 +2013,7 @@
     removeNodeButton.addEventListener("click", removeSelectedNode);
     window.addEventListener("scroll", updateTimeline, { passive: true });
 
-    renderGuideLines();
+    applyScrollableSpanForTimeFactor();
     renderYearMarkers();
     renderEvents();
     renderActorsLayer();
@@ -1954,7 +2028,8 @@
     window.addEventListener("resize", () => {
       window.clearTimeout(resizeActorsTimer);
       resizeActorsTimer = window.setTimeout(() => {
-        renderGuideLines();
+        applyScrollableSpanForTimeFactor();
+        lastRenderedGuideAngle = null;
         renderActorsLayer();
         resolveBgGifPositions();
         resolveBubblePositions();
